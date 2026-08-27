@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:WarpAvalonia.Controls"
+        x:Class="WarpAvalonia.Dialogs.DialogTomoReconstruction"
+        Title="Reconstruct Full Tomograms"
+        Width="650" Height="550"
+        WindowStartupLocation="CenterOwner" CanResize="False" FontSize="12">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
+        <TextBlock Text="Reconstruct full tomograms" FontSize="24" Margin="0,10,0,20" />
+
+        <!-- Configuration panel -->
+        <StackPanel Name="PanelConfiguration" Orientation="Vertical">
+            <StackPanel Orientation="Horizontal" Height="30" Margin="0,0,0,10">
+                <TextBlock Text="Pixel size: " FontSize="16" VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.TomoFullReconstructPixel, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A" />
+            </StackPanel>
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="16" />
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="16" />
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.TomoFullReconstructDoDeconv}" Content="Also produce deconvolved version" FontSize="16" />
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,0">
+                <TextBlock Text="Strength = " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvStrength, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" />
+                <TextBlock Text=", Falloff = " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvFalloff, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" />
+            </StackPanel>
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,10">
+                <TextBlock Text="High-pass = " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvHighpass, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="1" MaxValue="100000" StepSize="1" DecimalPlaces="0" Suffix="A" />
+            </StackPanel>
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.TomoFullReconstructPrepareDenoising}" Content="Reconstruct half-maps for denoising" FontSize="16" />
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,10" Spacing="10">
+                <RadioButton Name="RadioDenoisingFrames" Content="Frames" GroupName="DenoisingType"
+                             IsChecked="{Binding Tasks.TomoFullReconstructDenoisingFrames}" FontSize="16" />
+                <RadioButton Content="Tilts" GroupName="DenoisingType"
+                             IsChecked="{Binding Tasks.TomoFullReconstructDenoisingTilts}" FontSize="16" />
+            </StackPanel>
+
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.TomoFullReconstructOnlyFullVoxels}" Content="Keep only fully covered voxels" FontSize="16" />
+
+            <CheckBox Name="CheckFilter" Height="30" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="16" />
+            <CheckBox Name="CheckManual" Height="30" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="16" />
+
+            <StackPanel Height="50" Margin="0,0,0,10" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                <Button Content="RECONSTRUCT" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Click="ButtonReconstruct_OnClick" />
+                <Button Content="CANCEL" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Margin="24,0,0,0" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Progress panel -->
+        <StackPanel Name="PanelProgress" IsVisible="False" Margin="0,10,0,0" Spacing="10">
+            <WrapPanel Name="PanelGrids" Orientation="Horizontal" HorizontalAlignment="Center" />
+            <ProgressBar Name="ProgressOverall" Minimum="0" Maximum="100" />
+            <TextBlock Name="TextProgress" HorizontalAlignment="Center" FontSize="14" />
+            <Button Name="ButtonAbort" Content="CANCEL" FontSize="18" FontWeight="Medium"
+                    Foreground="Red" Background="Transparent" BorderThickness="0"
+                    HorizontalAlignment="Center" Click="ButtonAbort_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

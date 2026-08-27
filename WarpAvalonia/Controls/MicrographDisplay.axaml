@@ -1,0 +1,122 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:WarpAvalonia.Controls"
+             x:Class="WarpAvalonia.Controls.MicrographDisplay"
+             ClipToBounds="True" Background="Black">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Main display area (layered rendering) -->
+        <Grid Grid.Column="0" Name="GridDisplay" ClipToBounds="True"
+              PointerWheelChanged="Display_PointerWheelChanged"
+              PointerPressed="Display_PointerPressed"
+              PointerMoved="Display_PointerMoved"
+              PointerReleased="Display_PointerReleased"
+              Background="Transparent">
+
+            <!-- Layer 1: Core micrograph image -->
+            <Image Name="ImageDisplay" Stretch="None"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+            <!-- Layer 2: Elevation/defocus heatmap overlay -->
+            <Image Name="ImageElevation" Stretch="None" Opacity="0.4"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="False" />
+
+            <!-- Layer 3: Mask overlay -->
+            <Image Name="ImageMask" Stretch="None" Opacity="0.5"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="False" />
+
+            <!-- Layer 4: Motion tracks (grid) -->
+            <Canvas Name="CanvasTrack" IsVisible="False" IsHitTestVisible="False" />
+
+            <!-- Layer 5: Motion track under cursor -->
+            <Canvas Name="CanvasTrackMouse" IsHitTestVisible="False" />
+
+            <!-- Layer 6: Particles -->
+            <Canvas Name="CanvasParticles" IsVisible="False" IsHitTestVisible="False" />
+
+            <!-- Brush cursor -->
+            <Canvas Name="CanvasBrush" IsHitTestVisible="False">
+                <Ellipse Name="EllipseBrush" Stroke="White" StrokeThickness="2"
+                         IsVisible="False" Opacity="0.7" />
+            </Canvas>
+        </Grid>
+
+        <!-- Right sidebar: display controls -->
+        <Border Grid.Column="1" Width="220" Padding="6,4" Background="#15FFFFFF">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Display" FontSize="13" FontWeight="SemiBold" Margin="0,2" />
+
+                    <!-- Zoom -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Zoom:" Width="65" VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding Zoom, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="0.05" MaxValue="8" StepSize="0.05" DecimalPlaces="2" />
+                    </StackPanel>
+
+                    <!-- Intensity range -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Intensity:" Width="65" VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding IntensityRange, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="0.1" MaxValue="10" StepSize="0.1" DecimalPlaces="1" Suffix="s" />
+                    </StackPanel>
+
+                    <Separator Margin="0,4" />
+                    <TextBlock Text="Overlays" FontSize="13" FontWeight="SemiBold" Margin="0,2" />
+
+                    <!-- Elevation toggle -->
+                    <CheckBox IsChecked="{Binding ElevationShow, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                              Content="Elevation" />
+
+                    <!-- Tracks -->
+                    <CheckBox IsChecked="{Binding TrackShow, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                              Content="Motion tracks" />
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                        <TextBlock Text="Scale:" Width="45" VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding TrackScale, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" Suffix="x" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                        <TextBlock Text="Grid:" Width="45" VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding TrackGridX, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="1" MaxValue="20" StepSize="1" DecimalPlaces="0" />
+                        <TextBlock Text=" x " VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding TrackGridY, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="1" MaxValue="20" StepSize="1" DecimalPlaces="0" />
+                    </StackPanel>
+
+                    <!-- Particles -->
+                    <CheckBox IsChecked="{Binding ParticlesShow, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                              Content="Particles" />
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                        <TextBlock Text="Diam:" Width="45" VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding ParticlesDiameter, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="10" MaxValue="1000" StepSize="10" DecimalPlaces="0" Suffix="A" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                        <TextBlock Text="Thresh:" Width="45" VerticalAlignment="Center" />
+                        <c:ValueSlider Value="{Binding ParticlesThreshold, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="-10" MaxValue="10" StepSize="0.01" DecimalPlaces="2" />
+                    </StackPanel>
+
+                    <!-- Mask -->
+                    <CheckBox IsChecked="{Binding MaskShow, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                              Content="Mask" />
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                        <CheckBox IsChecked="{Binding BrushActive, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                  Content="Brush" />
+                        <c:ValueSlider Value="{Binding BrushDiameter, RelativeSource={RelativeSource AncestorType=c:MicrographDisplay}}"
+                                       MinValue="10" MaxValue="2000" StepSize="10" DecimalPlaces="0" Suffix="A" Margin="8,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

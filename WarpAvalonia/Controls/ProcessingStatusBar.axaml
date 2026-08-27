@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WarpAvalonia.Controls.ProcessingStatusBar"
+             Height="80">
+    <Grid RowDefinitions="26,6,*,6" Background="Transparent">
+        <!-- Top: filter controls -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBox Name="TextSearch" Width="180" Watermark="Search pattern..."
+                         FontSize="12" Padding="4,2" VerticalAlignment="Center" />
+                <!-- Color-coded filter checkboxes -->
+                <CheckBox Name="CheckProcessed" IsChecked="True" VerticalAlignment="Center">
+                    <Border Width="14" Height="14" Background="#cc77cd77" CornerRadius="2" />
+                </CheckBox>
+                <CheckBox Name="CheckOutdated" IsChecked="True" VerticalAlignment="Center">
+                    <Border Width="14" Height="14" Background="#ccffc456" CornerRadius="2" />
+                </CheckBox>
+                <CheckBox Name="CheckUnprocessed" IsChecked="True" VerticalAlignment="Center">
+                    <Border Width="14" Height="14" Background="#ccff7d7d" CornerRadius="2" />
+                </CheckBox>
+                <CheckBox Name="CheckFiltered" IsChecked="True" VerticalAlignment="Center">
+                    <Border Width="14" Height="14" Background="#cc7edfff" CornerRadius="2" />
+                </CheckBox>
+                <CheckBox Name="CheckDeselected" IsChecked="True" VerticalAlignment="Center">
+                    <Border Width="14" Height="14" Background="LightGray" CornerRadius="2" />
+                </CheckBox>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Name="TextCount" Text="" FontSize="12"
+                       VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,4,0" />
+        </Grid>
+
+        <!-- Item grid -->
+        <Canvas Grid.Row="2" Name="CanvasItems" HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch" ClipToBounds="True" />
+    </Grid>
+</UserControl>

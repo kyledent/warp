@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:CubeAvalonia.Controls"
+             x:Class="CubeAvalonia.Controls.ValueSlider"
+             x:DataType="c:ValueSlider">
+    <TextBox Name="TextValue"
+             MinWidth="40" Padding="4,1" FontSize="12"
+             VerticalAlignment="Center" VerticalContentAlignment="Center"
+             HorizontalContentAlignment="Right"
+             BorderThickness="0" Background="Transparent"
+             Text="{Binding DisplayText, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}" />
+</UserControl>

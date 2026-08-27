@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MAvalonia.Dialogs.DialogCreateNewSpecies" Title="Create New Species"
+        Width="700" Height="500" WindowStartupLocation="CenterOwner" FontSize="12">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Create new species" FontSize="24" Margin="0,0,0,10" />
+        <TabControl Grid.Row="1">
+            <TabItem Header="Parameters">
+                <StackPanel Spacing="8" Margin="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Name:" Width="80" VerticalAlignment="Center" />
+                        <TextBox Name="TextSpeciesName" Width="300" Text="New Species" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Diameter:" Width="80" VerticalAlignment="Center" />
+                        <TextBox Name="TextDiameter" Width="80" Text="200" />
+                        <TextBlock Text="A" VerticalAlignment="Center" Foreground="Gray" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Weight:" Width="80" VerticalAlignment="Center" />
+                        <TextBox Name="TextWeight" Width="80" Text="100" />
+                        <TextBlock Text="kDa" VerticalAlignment="Center" Foreground="Gray" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Symmetry:" Width="80" VerticalAlignment="Center" />
+                        <TextBox Name="TextSymmetry" Width="80" Text="C1" />
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Half-maps">
+                <StackPanel Spacing="8" Margin="8">
+                    <Button Name="ButtonHalfmap1" Content="Select half-map 1..." Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue" Click="ButtonHalfmap1_OnClick" />
+                    <Button Name="ButtonHalfmap2" Content="Select half-map 2..." Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue" Click="ButtonHalfmap2_OnClick" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Pixel size:" VerticalAlignment="Center" />
+                        <TextBox Name="TextHalfmapPixel" Width="80" Text="1.0" />
+                        <TextBlock Text="A" VerticalAlignment="Center" Foreground="Gray" />
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Mask">
+                <StackPanel Spacing="8" Margin="8">
+                    <Button Name="ButtonMask" Content="Select mask..." Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue" Click="ButtonMask_OnClick" />
+                    <TextBlock Name="TextMaskStatus" Text="No mask selected" Foreground="Gray" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Particles">
+                <StackPanel Spacing="8" Margin="8">
+                    <Button Name="ButtonParticles" Content="Select particle STAR..." Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue" Click="ButtonParticles_OnClick" />
+                    <TextBlock Name="TextParticleStatus" Text="No particles loaded" Foreground="Gray" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,10,0,0">
+            <Button Content="CREATE" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCreate_OnClick" />
+            <Button Content="CANCEL" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MAvalonia.Dialogs.DialogCreatePopulation"
+        Title="Create New Population"
+        Width="500" Height="200"
+        WindowStartupLocation="CenterOwner" CanResize="False" FontSize="12">
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock Text="Create new population" FontSize="24" />
+        <TextBox Name="TextPopulationName" Watermark="Population name..." FontSize="16" />
+        <Button Name="ButtonChangeFolder" Content="Select folder..."
+                Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue" Click="ButtonChangeFolder_OnClick" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16">
+            <Button Name="ButtonCreate" Content="CREATE" FontSize="16" FontWeight="Medium"
+                    Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0"
+                    IsVisible="False" Click="ButtonCreate_OnClick" />
+            <Button Content="CANCEL" FontSize="16" FontWeight="Medium"
+                    Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0"
+                    Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

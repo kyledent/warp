@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WarpAvalonia.Controls.SingleAxisScatter"
+             Height="120">
+    <Grid Background="Transparent" ColumnDefinitions="24,*">
+        <!-- Left histogram -->
+        <Canvas Grid.Column="0" Name="CanvasHistogram" Width="24"
+                HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,7,-1,0" />
+
+        <!-- Range highlight -->
+        <Border Grid.Column="1" Name="PanelRangeHighlight" Opacity="0.06"
+                Background="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="100" />
+
+        <!-- Axis labels -->
+        <Grid Grid.ColumnSpan="2" VerticalAlignment="Top" ColumnDefinitions="26,*">
+            <TextBlock Name="TextLineTop" Text="" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
+            <Border Grid.Column="1" Height="1" Background="DarkGray" Opacity="0.3" VerticalAlignment="Center" />
+        </Grid>
+        <Grid Grid.ColumnSpan="2" VerticalAlignment="Center" ColumnDefinitions="26,*">
+            <TextBlock Name="TextLineCenter" Text="" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
+            <Border Grid.Column="1" Height="1" Background="DarkGray" Opacity="0.3" VerticalAlignment="Center" />
+        </Grid>
+        <Grid Grid.ColumnSpan="2" VerticalAlignment="Bottom" ColumnDefinitions="26,*">
+            <TextBlock Name="TextLineBottom" Text="" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
+            <Border Grid.Column="1" Height="1" Background="DarkGray" Opacity="0.3" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- Plot area -->
+        <Grid Grid.Column="1" Margin="0,7">
+            <Image Name="ImagePlot" HorizontalAlignment="Left"
+                   PointerMoved="ImagePlot_PointerMoved"
+                   PointerPressed="ImagePlot_PointerPressed"
+                   PointerExited="ImagePlot_PointerExited" />
+            <Canvas Name="CanvasPlot" />
+        </Grid>
+    </Grid>
+</UserControl>

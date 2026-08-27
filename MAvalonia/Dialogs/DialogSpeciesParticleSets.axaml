@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MAvalonia.Dialogs.DialogSpeciesParticleSets" Title="Particle Sets"
+        Width="600" Height="400" WindowStartupLocation="CenterOwner" FontSize="12">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Manage particle sets" FontSize="24" Margin="0,0,0,10" />
+        <StackPanel Grid.Row="1" Spacing="8">
+            <TextBlock Text="Distance analysis and set operations for particle positions." Foreground="Gray" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Tolerance distance:" VerticalAlignment="Center" />
+                <TextBox Name="TextTolerance" Width="60" Text="5" />
+                <TextBlock Text="A" VerticalAlignment="Center" Foreground="Gray" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <CheckBox Name="CheckSet1" Content="Set 1" IsChecked="True" />
+                <CheckBox Name="CheckSet2" Content="Set 2" IsChecked="True" />
+                <CheckBox Name="CheckSet3" Content="Set 3" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <RadioButton Content="Union" IsChecked="True" GroupName="Operation" />
+                <RadioButton Content="Intersection" GroupName="Operation" />
+            </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,10,0,0">
+            <Button Content="APPLY" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonApply_OnClick" />
+            <Button Content="CANCEL" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </Grid>
+</Window>

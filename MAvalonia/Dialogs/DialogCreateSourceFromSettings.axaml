@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MAvalonia.Dialogs.DialogCreateSourceFromSettings" Title="Create Source from Settings"
+        Width="500" Height="300" WindowStartupLocation="CenterOwner" FontSize="12">
+    <StackPanel Margin="20" Spacing="8">
+        <TextBlock Text="Create source from settings" FontSize="24" Margin="0,0,0,10" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Source name:" Width="100" VerticalAlignment="Center" />
+            <TextBox Name="TextSourceName" Width="300" />
+        </StackPanel>
+        <CheckBox Content="Include items outside filter ranges" IsChecked="True" />
+        <CheckBox Content="Include manually excluded items" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,16,0,0">
+            <Button Content="CREATE" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCreate_OnClick" />
+            <Button Content="CANCEL" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

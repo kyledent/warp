@@ -1,0 +1,60 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:WarpAvalonia.Controls"
+        x:Class="WarpAvalonia.Dialogs.DialogTomoParticleExport"
+        Title="Export Sub-Tomograms"
+        Width="700" Height="600"
+        WindowStartupLocation="CenterOwner" CanResize="False" FontSize="12">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
+        <TextBlock Text="Export sub-tomograms" FontSize="24" Margin="0,10,0,20" />
+        <StackPanel Name="PanelConfiguration" Spacing="4">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Coordinate pixel size: " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.InputPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A/px" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Box size: " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.Export2DBoxSize}" MinValue="2" MaxValue="1024" StepSize="2" DecimalPlaces="0" Suffix="px" />
+                <TextBlock Text="  Diameter: " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.Export2DParticleDiameter}" MinValue="2" MaxValue="1024" StepSize="2" DecimalPlaces="0" Suffix="px" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <RadioButton Name="RadioVolume" GroupName="OutputMode" Content="Volumes" IsChecked="True" />
+                <RadioButton Name="RadioSeries" GroupName="OutputMode" Content="Particle series" />
+            </StackPanel>
+            <CheckBox Name="CheckInvert" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" />
+            <CheckBox Name="CheckNormalize" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize" />
+            <CheckBox Name="CheckPreflip" IsChecked="{Binding Tasks.Export2DPreflip}" Content="Pre-flip phases" />
+            <CheckBox Name="CheckSparse" Content="Make sparse (skip empty slices)" />
+            <CheckBox Name="CheckOneInputPerItem" Content="Use per-item input" />
+            <CheckBox Name="CheckShiftParticles" Content="Shift particles by:" />
+            <StackPanel Orientation="Horizontal" Margin="24,0,0,0" Spacing="4">
+                <TextBlock Text="X:" VerticalAlignment="Center" />
+                <c:ValueSlider Name="SliderShiftParticlesX" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                <TextBlock Text="Y:" VerticalAlignment="Center" />
+                <c:ValueSlider Name="SliderShiftParticlesY" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                <TextBlock Text="Z:" VerticalAlignment="Center" />
+                <c:ValueSlider Name="SliderShiftParticlesZ" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+            </StackPanel>
+            <CheckBox Name="CheckRelative" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Relative paths" />
+            <CheckBox Name="CheckFilter" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include filtered out" />
+            <CheckBox Name="CheckManual" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include deselected" />
+            <StackPanel Orientation="Horizontal" Height="50" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,10,0,0">
+                <Button Content="EXPORT" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Click="ButtonWrite_OnClick" />
+                <Button Content="CANCEL" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Margin="24,0,0,0" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </StackPanel>
+        <StackPanel Name="PanelProgress" IsVisible="False" Spacing="10" Margin="0,10">
+            <ProgressBar Name="ProgressWrite" Minimum="0" Maximum="100" />
+            <StackPanel Name="PanelRemaining" Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Name="TextRemaining" FontSize="14" />
+            </StackPanel>
+            <Button Name="ButtonAbort" Content="CANCEL" FontSize="18" FontWeight="Medium"
+                    Foreground="Red" Background="Transparent" BorderThickness="0"
+                    HorizontalAlignment="Center" Click="ButtonAbort_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

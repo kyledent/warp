@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:WarpAvalonia.Controls"
+        x:Class="WarpAvalonia.Dialogs.Dialog2DDefocusUpdate"
+        Title="Adjust Particle Defocus"
+        Width="550" Height="350"
+        WindowStartupLocation="CenterOwner" CanResize="False" FontSize="12">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
+        <TextBlock Text="Adjust particle defocus" FontSize="24" Margin="0,10,0,20" />
+        <Grid RowDefinitions="30,15,30,30,15,30,30,50">
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <TextBlock Text="Coordinates use " FontSize="16" VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.InputPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="0.01" MaxValue="1000" StepSize="0.001" DecimalPlaces="3" Suffix="A/px" />
+            </StackPanel>
+            <RadioButton Grid.Row="2" Name="RadioSkip" GroupName="Missing"
+                         IsChecked="{Binding Tasks.AdjustDefocusSkipExcluded}"
+                         Content="Skip particles from excluded items" FontSize="16" />
+            <RadioButton Grid.Row="3" Name="RadioDelete" GroupName="Missing"
+                         IsChecked="{Binding Tasks.AdjustDefocusDeleteExcluded}"
+                         Content="Delete particles from excluded items" FontSize="16" />
+            <CheckBox Grid.Row="5" Name="CheckFilter" IsChecked="{Binding Tasks.IncludeFilteredOut}"
+                      Content="Include items outside of filter ranges" FontSize="16" />
+            <CheckBox Grid.Row="6" Name="CheckManual" IsChecked="{Binding Tasks.IncludeUnselected}"
+                      Content="Include manually excluded items" FontSize="16" />
+            <ProgressBar Grid.Row="7" Name="ProgressWrite" IsVisible="False" Minimum="0" Maximum="100" />
+            <StackPanel Grid.Row="7" Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                <Button Content="UPDATE VALUES" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Click="ButtonWrite_OnClick" />
+                <Button Content="CANCEL" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Margin="24,0,0,0" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</Window>

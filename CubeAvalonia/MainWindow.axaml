@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:CubeAvalonia.Controls"
+        x:Class="CubeAvalonia.MainWindow"
+        Title="Cube — 3D Coordinate Viewer"
+        Width="1000" Height="1100" FontSize="12"
+        KeyDown="MainWindow_OnKeyDown">
+    <Grid RowDefinitions="60,*">
+        <!-- Control bar -->
+        <Grid Grid.Row="0" Margin="10" ColumnDefinitions="20*,25*,18*,15*" RowDefinitions="*,*">
+            <Button Grid.Row="0" Grid.Column="0" Name="ButtonTomogramPath"
+                    Content="Select tomogram..." Background="Transparent" BorderThickness="0"
+                    Foreground="CornflowerBlue" Click="ButtonTomogramPath_OnClick" />
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                <TextBlock Text="Average " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding InputAverageSlices}" MinValue="1" MaxValue="1000" StepSize="1" DecimalPlaces="0" Suffix="slices" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                <TextBlock Text="Intensity " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding DisplayIntensityMin}" MinValue="-10" MaxValue="-0.01" StepSize="0.01" DecimalPlaces="2" />
+                <TextBlock Text=" to " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding DisplayIntensityMax}" MinValue="0.01" MaxValue="10" StepSize="0.01" DecimalPlaces="2" Suffix="s" />
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+                <TextBlock Name="TextNParticles" Text="0 particles, " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding BoxSize}" MinValue="2" MaxValue="256" StepSize="2" DecimalPlaces="0" Suffix="px box" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal">
+                <TextBlock Text="Score " VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding ParticleScoreMin}" MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" />
+                <TextBlock Text="-" VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding ParticleScoreMax}" MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" />
+            </StackPanel>
+            <Button Grid.Row="0" Grid.Column="3" Content="Import Coordinates"
+                    Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue"
+                    Click="ButtonPointsImport_OnClick" />
+            <Button Grid.Row="1" Grid.Column="3" Content="Export Coordinates"
+                    Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue"
+                    Click="ButtonPointsExport_OnClick" />
+        </Grid>
+
+        <!-- Display grid: 2x2 with ZY, XY, XZ planes + particle detail -->
+        <Grid Grid.Row="1" RowDefinitions="3*,*" ColumnDefinitions="*,3*">
+            <!-- ZY plane (top-left) -->
+            <Grid Grid.Row="0" Grid.Column="0" ClipToBounds="True" Margin="2"
+                  PointerWheelChanged="ImageZY_OnMouseWheel"
+                  PointerPressed="Image_OnPointerPressed"
+                  PointerMoved="ImageZY_OnPointerMoved">
+                <Image Name="ImageZY" Stretch="Uniform" />
+                <Canvas Name="CanvasParticlesZY" IsHitTestVisible="False" />
+            </Grid>
+
+            <!-- XY plane (top-right, main view) -->
+            <Grid Grid.Row="0" Grid.Column="1" ClipToBounds="True" Margin="2"
+                  PointerWheelChanged="ImageXY_OnMouseWheel"
+                  PointerPressed="Image_OnPointerPressed"
+                  PointerMoved="ImageXY_OnPointerMoved">
+                <Image Name="ImageXY" Stretch="Uniform" />
+                <Canvas Name="CanvasParticlesXY" IsHitTestVisible="False" />
+            </Grid>
+
+            <!-- XZ plane (bottom-right) -->
+            <Grid Grid.Row="1" Grid.Column="1" ClipToBounds="True" Margin="2"
+                  PointerWheelChanged="ImageXZ_OnMouseWheel"
+                  PointerPressed="Image_OnPointerPressed"
+                  PointerMoved="ImageXZ_OnPointerMoved">
+                <Image Name="ImageXZ" Stretch="Uniform" />
+                <Canvas Name="CanvasParticlesXZ" IsHitTestVisible="False" />
+            </Grid>
+
+            <!-- Particle detail (bottom-left, 2x2 sub-views) -->
+            <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="*,*" ColumnDefinitions="*,*">
+                <Image Name="ImageParticleZY" Grid.Row="0" Grid.Column="0" Margin="2" Stretch="Uniform" />
+                <Image Name="ImageParticleXY" Grid.Row="0" Grid.Column="1" Margin="2" Stretch="Uniform" />
+                <Image Name="ImageParticleXZ" Grid.Row="1" Grid.Column="1" Margin="2" Stretch="Uniform" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Particle Detail" Foreground="Gray"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

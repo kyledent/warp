@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MAvalonia.Dialogs.DialogDataSources" Title="Manage Data Sources"
+        Width="600" Height="400" WindowStartupLocation="CenterOwner" FontSize="12">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Data sources" FontSize="24" Margin="0,0,0,10" />
+        <ListBox Grid.Row="1" Name="ListSources" />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,10,0,0">
+            <Button Content="ADD SOURCE" FontSize="14" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonAdd_OnClick" />
+            <Button Content="REMOVE" FontSize="14" FontWeight="Medium" Foreground="Red" Background="Transparent" BorderThickness="0" Click="ButtonRemove_OnClick" />
+            <Button Content="CLOSE" FontSize="14" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonClose_OnClick" />
+        </StackPanel>
+    </Grid>
+</Window>

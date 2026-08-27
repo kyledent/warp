@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="WarpAvalonia.Dialogs.DialogTomoList"
+        Title="Export Tomogram List"
+        Width="550" Height="250"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontSize="12">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
+        <TextBlock Text="Export tomogram list" FontSize="24" Margin="0,10,0,20" />
+        <Grid RowDefinitions="30,30,30,50">
+            <CheckBox Grid.Row="0" Name="CheckRelative"
+                      IsChecked="{Binding Tasks.UseRelativePaths}"
+                      Content="Make paths relative to STAR location" FontSize="16" />
+            <CheckBox Grid.Row="1" Name="CheckFilter"
+                      IsChecked="{Binding Tasks.IncludeFilteredOut}"
+                      Content="Include items outside of filter ranges" FontSize="16" />
+            <CheckBox Grid.Row="2" Name="CheckManual"
+                      IsChecked="{Binding Tasks.IncludeUnselected}"
+                      Content="Include manually excluded items" FontSize="16" />
+            <ProgressBar Grid.Row="3" Name="ProgressWrite" IsVisible="False"
+                         Minimum="0" Maximum="100" />
+            <StackPanel Grid.Row="3" Name="PanelButtons" Orientation="Horizontal"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                <Button Name="ButtonWrite" Content="WRITE LIST" FontSize="18"
+                        FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0"
+                        Click="ButtonWrite_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="18"
+                        FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0"
+                        Margin="24,0,0,0" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</Window>

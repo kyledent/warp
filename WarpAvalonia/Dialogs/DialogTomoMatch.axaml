@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:WarpAvalonia.Controls"
+        x:Class="WarpAvalonia.Dialogs.DialogTomoMatch"
+        Title="Template Matching (3D)"
+        Width="650" Height="450"
+        WindowStartupLocation="CenterOwner" CanResize="False" FontSize="12">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
+        <TextBlock Text="Match template (tomography)" FontSize="24" Margin="0,10,0,20" />
+        <StackPanel Name="PanelConfiguration" Orientation="Vertical" Spacing="4">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Template: " FontSize="16" VerticalAlignment="Center" />
+                <TextBlock Name="TextTemplateName" FontSize="16" Foreground="CornflowerBlue" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Template pixel size: " FontSize="16" VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.TomoMatchTemplatePixel, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
+                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="A" />
+            </StackPanel>
+            <CheckBox Name="CheckFilter" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="16" />
+            <CheckBox Name="CheckManual" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="16" />
+            <StackPanel Height="50" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,10,0,0">
+                <Button Content="MATCH" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Click="ButtonReconstruct_OnClick" />
+                <Button Content="CANCEL" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue"
+                        Background="Transparent" BorderThickness="0" Margin="24,0,0,0" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </StackPanel>
+        <StackPanel Name="PanelProgress" IsVisible="False" Spacing="10" Margin="0,10">
+            <ProgressBar Name="ProgressOverall" Minimum="0" Maximum="100" />
+            <TextBlock Name="TextProgress" HorizontalAlignment="Center" FontSize="14" />
+            <Button Name="ButtonAbort" Content="CANCEL" FontSize="18" FontWeight="Medium"
+                    Foreground="Red" Background="Transparent" BorderThickness="0"
+                    HorizontalAlignment="Center" Click="ButtonAbort_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WarpAvalonia.Controls.DualAxisScatter">
+    <Grid Background="Transparent">
+        <Image Name="ImagePlot"
+               PointerMoved="ImagePlot_PointerMoved"
+               PointerPressed="ImagePlot_PointerPressed"
+               PointerExited="ImagePlot_PointerExited" />
+        <Canvas Name="CanvasPlot" />
+    </Grid>
+</UserControl>

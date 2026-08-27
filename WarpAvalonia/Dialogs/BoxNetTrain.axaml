@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:WarpAvalonia.Controls"
+        x:Class="WarpAvalonia.Dialogs.BoxNetTrain"
+        Title="Retrain BoxNet Model"
+        Width="700" Height="500"
+        WindowStartupLocation="CenterOwner" FontSize="12">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Retrain BoxNet" FontSize="24" Margin="0,10,0,20" />
+        <StackPanel Grid.Row="1" Spacing="8">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Model name: " VerticalAlignment="Center" Width="100" />
+                <TextBox Name="TextModelName" Width="300" Text="MyBoxNet" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Particle diameter: " VerticalAlignment="Center" Width="100" />
+                <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="A" />
+            </StackPanel>
+            <CheckBox Content="Use corpus examples" />
+            <CheckBox Content="Train mask prediction" />
+
+            <Separator Margin="0,4" />
+
+            <!-- Training progress (replaces LiveCharts CartesianChart) -->
+            <TextBlock Text="Training Progress" FontSize="14" FontWeight="SemiBold" />
+            <Canvas Name="CanvasLossCurve" Height="150" Background="#10000000" />
+            <TextBlock Name="TextTrainStatus" Text="Ready to train." Foreground="Gray" />
+            <ProgressBar Name="ProgressTrain" IsVisible="False" Minimum="0" Maximum="100" />
+        </StackPanel>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,10,0,0">
+            <Button Content="TRAIN" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue"
+                    Background="Transparent" BorderThickness="0" Click="ButtonTrain_OnClick" />
+            <Button Content="CANCEL" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue"
+                    Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </Grid>
+</Window>

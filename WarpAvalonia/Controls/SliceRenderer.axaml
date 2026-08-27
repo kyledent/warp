@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WarpAvalonia.Controls.SliceRenderer"
+             Background="Transparent">
+    <Grid>
+        <Image Name="ImageViewer" Stretch="Uniform"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <Canvas Name="CanvasOverlay" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Ellipse Name="Pointer" Width="8" Height="8"
+                     Stroke="Black" StrokeThickness="2" Fill="White"
+                     IsVisible="False" />
+        </Canvas>
+    </Grid>
+</UserControl>

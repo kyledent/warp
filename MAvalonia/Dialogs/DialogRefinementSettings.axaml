@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MAvalonia.Dialogs.DialogRefinementSettings" Title="Refinement Settings"
+        Width="700" Height="600" WindowStartupLocation="CenterOwner" FontSize="12">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Refinement settings" FontSize="24" Margin="0,0,0,10" />
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="4">
+                <TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
+                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="Iterations:" Width="200" /><TextBox Name="TextIterations" Width="60" Text="5" /></StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="Initial resolution (%):" Width="200" /><TextBox Name="TextResolution" Width="60" Text="100" /></StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="Min particles per item:" Width="200" /><TextBox Name="TextMinParticles" Width="60" Text="10" /></StackPanel>
+                <Separator Margin="0,8" />
+                <TextBlock Text="Geometry" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
+                <CheckBox Content="Image warp" IsChecked="True" />
+                <CheckBox Content="Particle poses" IsChecked="True" />
+                <CheckBox Content="Magnification" />
+                <Separator Margin="0,8" />
+                <TextBlock Text="CTF" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
+                <CheckBox Content="Defocus" IsChecked="True" />
+                <CheckBox Content="Defocus grid search" />
+                <CheckBox Content="Phase shift" />
+                <CheckBox Content="Cs" />
+                <CheckBox Content="Zernike 1-3" />
+                <CheckBox Content="Zernike 5+" />
+                <Separator Margin="0,8" />
+                <TextBlock Text="Frame series" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
+                <CheckBox Content="Doming" />
+                <Separator Margin="0,8" />
+                <TextBlock Text="Tilt series" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
+                <CheckBox Content="Stage angles" />
+                <CheckBox Content="Volume warp" />
+                <CheckBox Content="Tilt movies" />
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,10,0,0">
+            <Button Content="REFINE" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonRefine_OnClick" />
+            <Button Content="CANCEL" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </Grid>
+</Window>
