@@ -30,8 +30,17 @@ namespace WarpTools.Commands
         [Option("frameseries", Required = true, HelpText = "Path to a folder containing frame series processing results and their aligned averages")]
         public string FrameseriesPath { get; set; }
 
-        [Option("tilt_exposure", Required = true, HelpText = "Per-tilt exposure in e-/A^2")]
-        public double TiltExposure { get; set; }
+        [Option("tilt_exposure", HelpText = "Per-tilt exposure in e-/A^2 (assumes uniform dose per tilt). One of --tilt_exposure, --incident_dose_rate, --dose_per_frame, or --tilt_dose_file must be specified")]
+        public double? TiltExposure { get; set; }
+
+        [Option("incident_dose_rate", HelpText = "Incident dose rate in e-/A^2/s; per-tilt dose computed as rate * ExposureTime from mdoc. Use instead of --tilt_exposure for variable-exposure tilt series")]
+        public double? IncidentDoseRate { get; set; }
+
+        [Option("dose_per_frame", HelpText = "Dose per raw detector frame in e-/A^2; per-tilt dose computed as value * NumSubFrames from mdoc. Use for EER data with variable-exposure tilt series")]
+        public double? DosePerFrame { get; set; }
+
+        [Option("tilt_dose_file", HelpText = "Path to a text file with per-tilt dose values (one per line, in ZValue order, e-/A^2). Overrides all other dose options")]
+        public string TiltDoseFile { get; set; }
 
         [Option("dont_invert", HelpText = "Don't invert tilt angles compared to IMOD's convention (inversion is usually needed to match IMOD's geometric handedness). This will flip the geometric handedness")]
         public bool DontInvert { get; set; }
@@ -82,8 +91,23 @@ namespace WarpTools.Commands
             if (!Directory.Exists(CLI.FrameseriesPath))
                 throw new Exception($"Frame series folder does not exist: {CLI.FrameseriesPath}");
 
-            if (CLI.TiltExposure <= 0)
+            // Validate that exactly one dose option is specified
+            int DoseOptionsCount = (CLI.TiltExposure != null ? 1 : 0) +
+                                   (CLI.IncidentDoseRate != null ? 1 : 0) +
+                                   (CLI.DosePerFrame != null ? 1 : 0) +
+                                   (!string.IsNullOrEmpty(CLI.TiltDoseFile) ? 1 : 0);
+
+            if (DoseOptionsCount == 0)
+                throw new Exception("One of --tilt_exposure, --incident_dose_rate, --dose_per_frame, or --tilt_dose_file must be specified");
+
+            if (CLI.TiltExposure != null && CLI.TiltExposure <= 0)
                 throw new Exception($"--tilt_exposure must be higher than 0");
+            if (CLI.IncidentDoseRate != null && CLI.IncidentDoseRate <= 0)
+                throw new Exception($"--incident_dose_rate must be higher than 0");
+            if (CLI.DosePerFrame != null && CLI.DosePerFrame <= 0)
+                throw new Exception($"--dose_per_frame must be higher than 0");
+            if (!string.IsNullOrEmpty(CLI.TiltDoseFile) && !File.Exists(CLI.TiltDoseFile))
+                throw new Exception($"--tilt_dose_file not found: {CLI.TiltDoseFile}");
 
             if (CLI.AutoZero && CLI.TiltOffset != null)
                 throw new Exception("--auto_zero and --offset_zero cannot be used together");
@@ -270,6 +294,10 @@ namespace WarpTools.Commands
                                             FoundTime = false;
                                         }
                                     }
+                                    else if (Parts[0] == "ExposureTime")
+                                        NewEntry.ExposureTime = float.Parse(Parts[1], CultureInfo.InvariantCulture);
+                                    else if (Parts[0] == "NumSubFrames")
+                                        NewEntry.NumSubFrames = int.Parse(Parts[1], CultureInfo.InvariantCulture);
                                 }
 
                                 if (!FoundTime)
@@ -301,9 +329,74 @@ namespace WarpTools.Commands
                         SortedTime.Sort((a, b) => a.Time.CompareTo(b.Time));
 
 
-                        // Replace exposure value with accumulated per-tilt exposure based on --tilt_exposure
-                        for (int i = 0; i < SortedTime.Count; i++)
-                            SortedTime[i].Dose = i * (float)CLI.TiltExposure;
+                        // Compute accumulated per-tilt dose based on the selected dose input method
+                        // Priority: tilt_dose_file > incident_dose_rate > dose_per_frame > tilt_exposure
+                        if (!string.IsNullOrEmpty(CLI.TiltDoseFile))
+                        {
+                            // Read per-tilt dose values from file (one per line, in ZValue order)
+                            string[] DoseLines = File.ReadAllLines(CLI.TiltDoseFile)
+                                .Where(l => !string.IsNullOrWhiteSpace(l) && !l.TrimStart().StartsWith("#"))
+                                .ToArray();
+                            float[] PerTiltDose = DoseLines
+                                .Select(l => float.Parse(l.Trim().Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)[0], CultureInfo.InvariantCulture))
+                                .ToArray();
+
+                            // Build ZValue -> dose mapping
+                            Dictionary<int, float> ZValueDose = new Dictionary<int, float>();
+                            for (int i = 0; i < PerTiltDose.Length; i++)
+                                ZValueDose[i] = PerTiltDose[i];
+
+                            // Validate
+                            foreach (var entry in SortedTime)
+                            {
+                                if (!ZValueDose.ContainsKey(entry.ZValue))
+                                    throw new Exception($"--tilt_dose_file does not contain a dose value for ZValue {entry.ZValue}");
+                            }
+
+                            // Accumulate in acquisition order (SortedTime is already sorted by time)
+                            float AccDose = 0f;
+                            for (int i = 0; i < SortedTime.Count; i++)
+                            {
+                                AccDose += ZValueDose[SortedTime[i].ZValue];
+                                SortedTime[i].Dose = AccDose;
+                            }
+                        }
+                        else if (CLI.IncidentDoseRate != null)
+                        {
+                            // Variable exposure: dose from incident rate * per-tilt exposure time
+                            // Validate that ExposureTime was parsed
+                            if (SortedTime.Any(e => e.ExposureTime <= 0))
+                                throw new Exception("--incident_dose_rate requires ExposureTime values in the mdoc file, but one or more tilts have ExposureTime = 0 or missing");
+
+                            float AccDose = 0f;
+                            for (int i = 0; i < SortedTime.Count; i++)
+                            {
+                                float TiltDose = (float)CLI.IncidentDoseRate * SortedTime[i].ExposureTime;
+                                AccDose += TiltDose;
+                                SortedTime[i].Dose = AccDose;
+                            }
+                        }
+                        else if (CLI.DosePerFrame != null)
+                        {
+                            // EER variable exposure: dose from per-frame dose * NumSubFrames
+                            // Validate that NumSubFrames was parsed
+                            if (SortedTime.Any(e => e.NumSubFrames <= 0))
+                                throw new Exception("--dose_per_frame requires NumSubFrames values in the mdoc file, but one or more tilts have NumSubFrames = 0 or missing");
+
+                            float AccDose = 0f;
+                            for (int i = 0; i < SortedTime.Count; i++)
+                            {
+                                float TiltDose = (float)CLI.DosePerFrame * SortedTime[i].NumSubFrames;
+                                AccDose += TiltDose;
+                                SortedTime[i].Dose = AccDose;
+                            }
+                        }
+                        else
+                        {
+                            // Original uniform dose computation
+                            for (int i = 0; i < SortedTime.Count; i++)
+                                SortedTime[i].Dose = i * (float)CLI.TiltExposure;
+                        }
 
 
                         // Sort entires by angle and time (accumulated dose)

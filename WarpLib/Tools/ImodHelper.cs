@@ -170,6 +170,10 @@ namespace Warp.Tools
                                 NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yy  HH:mm:ss", CultureInfo.InvariantCulture);
                                 FoundTime = true;
                             }
+                            else if (Parts[0] == "ExposureTime")
+                                NewEntry.ExposureTime = float.Parse(Parts[1], CultureInfo.InvariantCulture);
+                            else if (Parts[0] == "NumSubFrames")
+                                NewEntry.NumSubFrames = int.Parse(Parts[1], CultureInfo.InvariantCulture);
                         }
 
                         //if (mdocNames.Value.Count == 1)
@@ -268,6 +272,8 @@ namespace Warp.Tools
         public float MaxTranslation;
         public float AverageIntensity;
         public float MaskedFraction;
+        public float ExposureTime;
+        public int NumSubFrames;
     }
 
     public class ParsedEntry : WarpBase

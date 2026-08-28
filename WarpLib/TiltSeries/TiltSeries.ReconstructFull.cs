@@ -536,21 +536,21 @@ public partial class TiltSeries
             OutputFlat.WritePNG(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".png"));
             OutputFlat.Dispose();
         }
-        OutputRecVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+        OutputRecVolume.WriteMRC(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
         OutputRecVolume.Dispose();
 
         if (options.DoDeconv)
         {
-            OutputRecDeconvVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionDeconvDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+            OutputRecDeconvVolume.WriteMRC(System.IO.Path.Combine(ReconstructionDeconvDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
             OutputRecDeconvVolume.Dispose();
         }
 
         if (options.PrepareDenoising)
         {
-            OutputRecOddVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionOddDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+            OutputRecOddVolume.WriteMRC(System.IO.Path.Combine(ReconstructionOddDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
             OutputRecOddVolume.Dispose();
 
-            OutputRecEvenVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionEvenDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+            OutputRecEvenVolume.WriteMRC(System.IO.Path.Combine(ReconstructionEvenDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
             OutputRecEvenVolume.Dispose();
         }
 

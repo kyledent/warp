@@ -970,13 +970,14 @@ namespace WarpTools.Commands
             float TiltDose;
             if (UsedTilts.Count > 1)
             {
-                // Normal case - calculate dose difference between first two tilts
-                TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
+                // Use average dose increment across all used tilts (handles variable exposure)
+                float TotalDoseRange = tiltSeries.Dose[UsedTilts[UsedTilts.Count - 1]] - tiltSeries.Dose[UsedTilts[0]];
+                TiltDose = TotalDoseRange / (UsedTilts.Count - 1);
             }
             else
             {
-                // Single tilt case - use a default value or the dose of the single tilt
-                TiltDose = tiltSeries.Dose[UsedTilts[0]]; // Or another appropriate value
+                // Single tilt case - use the dose of the single tilt
+                TiltDose = tiltSeries.Dose[UsedTilts[0]];
             }
 
             UsedTilts.Sort();
