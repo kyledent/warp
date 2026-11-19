@@ -33,6 +33,13 @@ Stage: build
     curl -fsSL "https://micro.mamba.pm/api/micromamba/linux-64/{{ MICROMAMBA_VERSION }}" \
         | tar -xj -C /usr/local bin/micromamba
     export MAMBA_ROOT_PREFIX=/opt/mamba
+    # anaconda.org returns transient 503s; retry with backoff rather than fail a long build.
+    # build_sif.sh --pkgs-cache binds a host package cache onto /mnt (a mount point every base
+    # image has) and marks it; use it only when the marker proves it is really bound.
+    mkdir -p /opt/mamba
+    printf 'remote_max_retries: 10\nremote_backoff_factor: 4\nremote_connect_timeout_secs: 60\n' > /opt/mamba/.mambarc
+    if [ -f /mnt/.warp-pkgs-cache ]; then printf 'pkgs_dirs:\n  - /mnt\n' >> /opt/mamba/.mambarc; echo 'using bound package cache /mnt'; fi
+    export MAMBARC=/opt/mamba/.mambarc
     # Never the host's /tmp or /var/tmp: apptainer binds both into a build, and they are often noexec.
     export TMPDIR=/opt/buildtmp && mkdir -p "$TMPDIR"
 
@@ -93,7 +100,8 @@ PY
     micromamba create -y -p /opt/warp_runtime -c nvidia/label/cuda-12.9.0 -c conda-forge \
         --override-channels -f /opt/src/runtime-pins.txt
     cp /opt/src/runtime-pins.txt /opt/warp/runtime-pins.txt
-    micromamba clean -a -y
+    # No `micromamba clean`: the package cache may be the host's (bound in), and the runtime
+    # image never carries this stage's cache anyway.
 
     # The test variant IS this stage (build_sif.sh --variant test): make it runnable.
     if [ "{{ VARIANT }}" = "test" ]; then
