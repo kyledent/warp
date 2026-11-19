@@ -71,7 +71,7 @@ Stage: build
         set -euo pipefail
         export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES={{ CUDA_ARCHS }}"
         export DOTNET_CLI_TELEMETRY_OPTOUT=1 NUGET_PACKAGES=/opt/nuget
-        # MSBuild leaves node-reuse servers running after a build. They inherit this block's stdout,
+        # MSBuild leaves node-reuse servers running after a build. They inherit the stdout of this block,
         # so `micromamba run` would wait for end-of-file forever (seen: the test build hung after
         # "Build succeeded"). No node reuse, no build server, and shut any down before returning.
         export MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0
