@@ -121,7 +121,8 @@ cat "$CONTEXT/PROVENANCE"
 DEF="$CONTEXT/warptools.def"
 if [ "$VARIANT" = test ]; then
     # Everything up to the final stage, then a trailer that makes the build stage runnable.
-    awk 'NR>1 && /^Bootstrap:/{exit} {print}' "$HERE/warptools.def" > "$DEF"
+    # (the def opens with comments, so cut at the SECOND Bootstrap: line, not the first)
+    awk '/^Bootstrap:/{n++} n==2{exit} {print}' "$HERE/warptools.def" > "$DEF"
     cat >> "$DEF" <<'EOF'
 
 %environment
