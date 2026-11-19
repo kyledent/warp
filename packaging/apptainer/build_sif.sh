@@ -3,7 +3,7 @@
 #
 #   packaging/apptainer/build_sif.sh [--variant runtime|test] [--cuda 12.9|13.0] [--site DIR] [--out DIR]
 #                                    [--context DIR] [--jobs N] [--archs "61;70;89;120"] [--allow-dirty]
-#                                    [--pkgs-cache DIR]
+#                                    [--pkgs-cache DIR] [--miss-alignment REPO[@REV]]
 #
 # --cuda:  12.9 (warp_build.yml; also Pascal/Volta) or 13.0 (warp_build_cuda13.yml; R580+ drivers,
 #          compute capability 7.5 and up). Sets the default --archs for that toolkit.
@@ -18,10 +18,12 @@
 # A dirty tree is refused unless --allow-dirty, which records the uncommitted diff's hash instead.
 # Build state goes to $APPTAINER_TMPDIR; on hosts whose /tmp is noexec, point it at a local disk.
 # --pkgs-cache: a host directory bound in as the conda package cache, so rebuilds do not re-download.
+# --miss-alignment: a clone of warpem/miss-alignment (and a commit, default HEAD) to build into the
+#          image as its own environment, from that commit's uv.lock.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(git -C "$HERE" rev-parse --show-toplevel)"
-VARIANT=runtime CUDA=12.9 SITE="" OUT="${WARP_SIF_OUT:-$PWD}" CONTEXT="" JOBS=4 ARCHS="" DIRTY=0 PKGS=""
+VARIANT=runtime CUDA=12.9 SITE="" OUT="${WARP_SIF_OUT:-$PWD}" CONTEXT="" JOBS=4 ARCHS="" DIRTY=0 PKGS="" MA=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --variant) VARIANT="$2"; shift 2 ;;
@@ -33,6 +35,7 @@ while [ $# -gt 0 ]; do
         --archs) ARCHS="$2"; shift 2 ;;
         --allow-dirty) DIRTY=1; shift ;;
         --pkgs-cache) PKGS="$2"; shift 2 ;;
+        --miss-alignment) MA="$2"; shift 2 ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
 done
@@ -68,6 +71,27 @@ fi
 tar -C "$STAGE" --sort=name --owner=0 --group=0 --numeric-owner --mtime='2026-01-01 00:00Z' \
     -czf "$CONTEXT/warp-src.tar.gz" warp
 
+# Miss-Alignment: a pinned commit's tree (placeholder when not requested; the def checks for content).
+: > "$CONTEXT/miss-alignment-src.tar.gz"
+MA_VERSION=0
+if [ -n "$MA" ]; then
+    ma_repo="${MA%@*}"; ma_rev=HEAD; [ "$MA" != "$ma_repo" ] && ma_rev="${MA##*@}"
+    ma_head=$(git -C "$ma_repo" rev-parse "$ma_rev^{commit}")
+    git -C "$ma_repo" archive --format=tar --prefix=src/ "$ma_head" | gzip -n > "$CONTEXT/miss-alignment-src.tar.gz"
+    # The PEP 440 version hatch-vcs would derive from git (the tarball has no .git):
+    # vX.Y.Z -> X.Y.Z;  vX.Y.Z-N-gH -> X.Y.(Z+1).devN+gH
+    ma_describe=$(git -C "$ma_repo" describe --tags --long "$ma_head")
+    if [[ "$ma_describe" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)-g([0-9a-f]+)$ ]]; then
+        if [ "${BASH_REMATCH[4]}" = 0 ]; then
+            MA_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+        else
+            MA_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1)).dev${BASH_REMATCH[4]}+g${BASH_REMATCH[5]}"
+        fi
+    else
+        MA_VERSION="0+unknown"
+    fi
+fi
+
 head=$(git -C "$REPO" rev-parse HEAD)
 {
     echo "staged_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -82,6 +106,12 @@ head=$(git -C "$REPO" rev-parse HEAD)
             && echo "site_uncommitted_files=$(git -C "$SITE" status --porcelain | wc -l)"
     fi
     echo "variant=$VARIANT"
+    if [ -n "$MA" ]; then
+        echo "miss_alignment_head=$ma_head"
+        echo "miss_alignment_describe=$ma_describe"
+        echo "miss_alignment_version=$MA_VERSION"
+        echo "miss_alignment_tarball_sha256=$(sha256sum "$CONTEXT/miss-alignment-src.tar.gz" | cut -d" " -f1)"
+    fi
     echo "cuda=$CUDA"
     echo "cuda_archs=$ARCHS"
     echo "tarball_sha256=$(sha256sum "$CONTEXT/warp-src.tar.gz" | cut -d' ' -f1)"
@@ -100,6 +130,8 @@ if [ "$VARIANT" = test ]; then
     export LD_LIBRARY_PATH=/opt/warp_runtime/lib:/opt/warp/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
     export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 DOTNET_CLI_TELEMETRY_OPTOUT=1 NUGET_PACKAGES=/opt/nuget
     export DOTNET_BUNDLE_EXTRACT_BASE_DIR="${TMPDIR:-/tmp}/warp-dotnet-bundle"
+    export WARP_MODELS="${WARP_MODELS:-/opt/warp/models}"
+    export MISS_ALIGNMENT_CACHE_DIR="${MISS_ALIGNMENT_CACHE_DIR:-$WARP_MODELS/miss_alignment}"
 
 %runscript
     exec /opt/warp/bin/warp-entry "$@"
@@ -117,7 +149,7 @@ if [ -n "$PKGS" ]; then
     BIND_ARGS=(--bind "$(cd "$PKGS" && pwd):/mnt")
 fi
 apptainer build --fakeroot --force "${BIND_ARGS[@]}" \
-    --build-arg "CUDA=$CUDA" --build-arg "CUDA_ARCHS=$ARCHS" --build-arg "BUILD_JOBS=$JOBS" --build-arg "VARIANT=$VARIANT" \
+    --build-arg "MA_VERSION=$MA_VERSION" --build-arg "CUDA=$CUDA" --build-arg "CUDA_ARCHS=$ARCHS" --build-arg "BUILD_JOBS=$JOBS" --build-arg "VARIANT=$VARIANT" \
     "$SIF" "$DEF"
 sha256sum "$SIF" | tee "$SIF.sha256"
 ls -la "$SIF"

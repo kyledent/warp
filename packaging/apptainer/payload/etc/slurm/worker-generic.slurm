@@ -33,4 +33,5 @@ apptainer exec --containall --nv "$WARP_SIF" warp check-gpu || exit 3
 # --containall drops the scheduler's GPU scoping, so CUDA_VISIBLE_DEVICES is passed explicitly,
 # and only when set (an empty value would hide every GPU).
 exec apptainer exec --containall --nv ${CUDA_VISIBLE_DEVICES:+--env CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES} \
+    ${WARP_MODELS:+--env WARP_MODELS=$WARP_MODELS} ${MISS_ALIGNMENT_CACHE_DIR:+--env MISS_ALIGNMENT_CACHE_DIR=$MISS_ALIGNMENT_CACHE_DIR} \
     -B "$BINDS" "$WARP_SIF" bash "$WARP_CMD"

@@ -54,6 +54,48 @@ section "2 CUDA runtime linkage (3aa0112: one shared libcudart, no static copy)"
     echo "distinct libcudart files resolved: $(ldd $so | grep libcudart | sort -u | wc -l)"
     ldd $so | grep -E "libcudart|libcufft|libcublas|libcurand|libtorch_cuda" | sed "s/^/  /"'
 
+section "2b denoising: a short Noise2Map training run (TorchSharp/LibTorchSharp on the GPU)"
+# Synthetic half-maps: one smooth object plus independent noise per half. Success is not "it exited 0":
+# the denoised map must correlate with the object better than a noisy half does.
+D="$W/denoise"; mkdir -p "$D"
+"${AX[@]}" -B "$W:$W" --pwd "$D" "$RUNTIME_SIF" bash -c '
+    set -e
+    PY=/opt/miss_alignment/venv/bin/python
+    [ -x "$PY" ] || { echo "no python with numpy/mrcfile in the image (miss-alignment env absent)"; exit 7; }
+    $PY - <<"PYEOF"
+import numpy as np, mrcfile
+n = 96; rng = np.random.default_rng(0)
+z, y, x = np.mgrid[:n, :n, :n] - n / 2
+obj = np.exp(-(x**2 + y**2 + z**2) / (2 * 12.0**2)) + 0.6 * np.exp(-((x - 18)**2 + y**2 + (z + 10)**2) / (2 * 6.0**2))
+obj = (obj / obj.std()).astype(np.float32)
+for i in (1, 2):
+    with mrcfile.new(f"half{i}.mrc", overwrite=True) as m:
+        m.set_data((obj + 1.5 * rng.standard_normal(obj.shape)).astype(np.float32)); m.voxel_size = 2.0
+np.save("truth.npy", obj)
+PYEOF
+    timeout 900 Noise2Map --half1 half1.mrc --half2 half2.mrc --angpix 2 --iterations 60 --batchsize 2 \
+        --window 64 --mini_model --dont_augment --gpuid_network 0 --gpuid_preprocess 0 2>&1 | tail -15
+    out=$(find . -name "*.mrc" -newer truth.npy ! -name "half*.mrc" | head -1)
+    echo "denoised output: ${out:-NONE}"
+    [ -n "$out" ] || exit 8
+    $PY - "$out" <<"PYEOF"
+import sys, numpy as np, mrcfile
+t = np.load("truth.npy"); d = mrcfile.read(sys.argv[1]).astype(np.float64); h = mrcfile.read("half1.mrc").astype(np.float64)
+cc = lambda a, b: float(np.corrcoef(a.ravel(), b.ravel())[0, 1])
+print("cc(noisy half, truth) = %.3f   cc(denoised, truth) = %.3f" % (cc(h, t), cc(d, t)))
+sys.exit(0 if cc(d, t) > cc(h, t) else 9)
+PYEOF
+'
+echo "noise2map_rc=$?"
+
+section "2c Miss-Alignment environment (its own torch) sees the allocated GPU"
+"${AX[@]}" "$RUNTIME_SIF" warp miss-alignment --help > /dev/null 2>&1 && echo "miss-alignment CLI ok" || echo "miss-alignment CLI FAILED"
+"${AX[@]}" "$RUNTIME_SIF" /opt/miss_alignment/venv/bin/python -c '
+import torch, torch_projectors
+x = torch.randn(64, 64, 64, device="cuda")
+print("torch", torch.__version__, "cuda", torch.version.cuda, "devices", torch.cuda.device_count(), "fft ok", bool(torch.isfinite(torch.fft.rfftn(x)).all()))'
+echo "miss_alignment_env_rc=$?"
+
 section "3 upstream test suite, CUDA tests enabled"
 # The image is read-only; run from a node-local copy of the built tree.
 "${AX[@]}" -B "$W:$W" --env WARP_RUN_CUDA_TESTS=1 --env "W=$W" "$TEST_SIF" bash -c '

@@ -98,6 +98,17 @@ for b in ${_env_binds[@]+"${_env_binds[@]}"} ${EXTRA_BINDS[@]+"${EXTRA_BINDS[@]}
 FLAGS=(--containall)
 for b in ${BINDS[@]+"${BINDS[@]}"}; do FLAGS+=(-B "${b}:${b}"); done
 
+# Network weights (Warp's WARP_MODELS, Miss-Alignment's MISS_ALIGNMENT_CACHE_DIR): one folder, bound
+# read-only unless an argument already binds it, and passed on to cluster workers with the other binds.
+if [ -n "${WARPTOOLS_MODELS:-}" ] && [ -d "${WARPTOOLS_MODELS}" ]; then
+    m="$(readlink -f "${WARPTOOLS_MODELS}")"
+    covered=0
+    for b in ${BINDS[@]+"${BINDS[@]}"}; do case "${m}" in "${b}"|"${b}"/*) covered=1 ;; esac; done
+    [ "${covered}" = 1 ] || FLAGS+=(-B "${m}:${m}:ro")
+    FLAGS+=(--env "WARP_MODELS=${m}" --env "MISS_ALIGNMENT_CACHE_DIR=${m}/miss_alignment")
+    export APPTAINERENV_WARP_MODELS_HOST="${m}"
+fi
+
 # GPU (harmless without one; the GUIs and CPU commands still run).
 if [ -e /dev/nvidiactl ] || command -v nvidia-smi >/dev/null 2>&1; then
     FLAGS+=(--nv)
@@ -119,7 +130,7 @@ fi
 
 # What a worker job needs to re-enter this image on a compute node.
 export APPTAINERENV_WARP_SIF="${SIF}"
-export APPTAINERENV_WARP_BINDS="$(IFS=,; echo "${BINDS[*]-}")"
+export APPTAINERENV_WARP_BINDS="$(IFS=,; echo "${BINDS[*]-}${APPTAINERENV_WARP_MODELS_HOST:+,${APPTAINERENV_WARP_MODELS_HOST}}")"
 
 # Cluster mode sanity: the compute nodes must see the image and every bound path. A site lists its
 # shared storage in WARPTOOLS_SHARED_PREFIXES (colon-separated), e.g. in warptools.conf next to this file.

@@ -13,6 +13,9 @@ warp <command> [args...]
   cluster-help                     how to run a WarpTools command on the cluster
   preflight                        libraries, GPU, versions (exit 1 on a hard problem)
   check-gpu                        exit 3 unless every visible GPU is an architecture this image was built for
+  miss-alignment ...               Miss-Alignment (infer | train | download-models), its own environment
+  models                           which network weights are installed (WARP_MODELS, MISS_ALIGNMENT_CACHE_DIR)
+  fetch-models DIR                 download what can be downloaded into DIR (needs network)
   provenance                       what source this image was built from
   <anything else>                  executed as a command inside the image
 EOF
@@ -45,6 +48,16 @@ preflight() {
     else
         echo "  no nvidia-smi in the container (not started with --nv, or no GPU): GPU commands will fail"
     fi
+    echo "== denoising and alignment"
+    for p in Noise2Map Noise2Tomo Noise2Mic Noise2Half; do
+        [ -x "$W/bin/$p" ] && echo "  ok      $p" || { echo "  MISSING $p"; bad=1; }
+    done
+    if [ -x "$MA/miss-alignment" ]; then
+        echo "  ok      miss-alignment $(sed -n 's/^miss_alignment_version=//p' "$W/PROVENANCE") ($("$MA/python" -c 'import torch; print("torch", torch.__version__, "cuda", torch.version.cuda, "devices", torch.cuda.device_count())' 2>&1 | tail -1))"
+    else
+        echo "  --      miss-alignment not built into this image"
+    fi
+    models | sed 's/^/  /'
     echo "== WarpTools"
     "$W/bin/WarpTools" --version 2>&1 | head -3 | sed 's/^/  /' || { echo "  WarpTools did not start"; bad=1; }
     return $bad
@@ -64,6 +77,43 @@ check_gpu() {
     done
     [ $bad -eq 0 ] && echo "check-gpu: sm_$(echo $caps | tr ' ' ',') supported by this image ($archs)"
     [ $bad -eq 0 ] || return 3
+}
+
+MA=/opt/miss_alignment/venv/bin
+# Weights Warp looks up by name in $WARP_MODELS (WarpLib/NNModels). Upstream has published no download
+# for these; they are installed by hand. Denoisers trained per dataset (Noise2Map, Noise2Tomo,
+# Noise2Half, Noise2Mic from scratch) need none of them.
+WARP_MODEL_FILES="junknet.pt:JunkNet junk detection (fs_motion_and_ctf junk masking, denoiser erasure)
+noise2mic_pretrained.pt:Noise2Mic pretrained denoiser (training/inference starting from 'pretrained')"
+
+models() {
+    echo "WARP_MODELS=${WARP_MODELS:-unset}"
+    echo "$WARP_MODEL_FILES" | while IFS=: read -r f what; do
+        if [ -f "${WARP_MODELS:-/nonexistent}/$f" ]; then echo "  installed  $f  ($what)"
+        else echo "  missing    $f  ($what)"; fi
+    done
+    echo "MISS_ALIGNMENT_CACHE_DIR=${MISS_ALIGNMENT_CACHE_DIR:-unset}"
+    if [ -x "$MA/python" ]; then
+        if [ -n "$(ls -A "${MISS_ALIGNMENT_CACHE_DIR:-/nonexistent}" 2>/dev/null)" ]; then
+            echo "  present    Miss-Alignment pretrained models: $(ls "$MISS_ALIGNMENT_CACHE_DIR" | tr '\n' ' ')"
+        else
+            echo "  missing    Miss-Alignment pretrained models (warp fetch-models DIR, on a host with network)"
+        fi
+    else
+        echo "  (Miss-Alignment is not built into this image)"
+    fi
+}
+
+fetch_models() {
+    local dest="${1:?usage: warp fetch-models DIR}"
+    mkdir -p "$dest/miss_alignment" || return 1
+    if [ -x "$MA/miss-alignment" ]; then
+        echo "Miss-Alignment pretrained models (easymode, GPL-3.0) -> $dest/miss_alignment"
+        MISS_ALIGNMENT_CACHE_DIR="$dest/miss_alignment" "$MA/miss-alignment" download-models || return 1
+    fi
+    echo "Warp models have no published download; copy them into $dest by hand if you have them:"
+    echo "$WARP_MODEL_FILES" | sed 's/^/  /; s/:/  /'
+    echo "Then point the launcher at $dest (WARPTOOLS_MODELS in warptools.conf)."
 }
 
 cluster_help() {
@@ -93,6 +143,10 @@ case "$cmd" in
     cube-gui)   exec "$W/gui/CubeAvalonia/CubeAvalonia" "$@" ;;
     slurm)      exec "$W/bin/warp-slurm" "$@" ;;
     cluster-help) cluster_help ;;
+    miss-alignment) [ -x "$MA/miss-alignment" ] || { echo "Miss-Alignment is not built into this image" >&2; exit 1; }
+                exec "$MA/miss-alignment" "$@" ;;
+    models)     models ;;
+    fetch-models) fetch_models "$@" ;;
     preflight)  preflight ;;
     check-gpu)  check_gpu ;;
     provenance) cat "$W/PROVENANCE" "$W/runtime-pins.txt" ;;

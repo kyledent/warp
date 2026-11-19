@@ -37,7 +37,7 @@ import urllib.request
 
 SITE_ENV = "/opt/warp/etc/site.env"
 DEFAULT_TOKEN_FILES = ["~/.slurm/jwt"]   # sites point WARP_SLURM_TOKEN_FILE at their own cache
-FORWARD_ENV = ["WARP_SIF", "WARP_BINDS", "LANG"]
+FORWARD_ENV = ["WARP_SIF", "WARP_BINDS", "WARP_MODELS", "MISS_ALIGNMENT_CACHE_DIR", "LANG"]
 
 
 def load_site_env():

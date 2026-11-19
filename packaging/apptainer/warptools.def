@@ -19,6 +19,8 @@ Stage: build
     CUDA_ARCHS=61;70;89;120
     BUILD_JOBS=4
     MICROMAMBA_VERSION=2.0.5
+    UV_VERSION=0.13.7
+    MA_VERSION=0
     VARIANT=runtime
 
 %files
@@ -26,6 +28,7 @@ Stage: build
     PROVENANCE /opt/src/PROVENANCE
     payload /opt/src/payload
     site /opt/src/site
+    miss-alignment-src.tar.gz /opt/src/miss-alignment-src.tar.gz
 
 %post
     set -euo pipefail
@@ -122,6 +125,25 @@ PY
     # No `micromamba clean`: the package cache may be the host's (bound in), and the runtime
     # image never carries this stage's cache anyway.
 
+    # Miss-Alignment (warpem/miss-alignment, BSD-3), when build_sif.sh --miss-alignment staged it.
+    # Its own environment, from the repository's uv.lock, group cu129: torch 2.8.0 + torch-projectors
+    # from warpem's cu129 index, the authors' tested set (it cannot share Warp's PyTorch). zenodo-get
+    # (AGPL-3.0, imported only by an example script) is not installed. Its pretrained models (GPL-3.0)
+    # are not bundled: they live in $MISS_ALIGNMENT_CACHE_DIR (see `warp fetch-models`).
+    mkdir -p /opt/miss_alignment /opt/warp/models
+    if [ -s /opt/src/miss-alignment-src.tar.gz ]; then
+        /opt/warp_build/bin/python -m pip install --no-cache-dir --target /opt/buildtmp/uv "uv=={{ UV_VERSION }}"
+        export PATH=/opt/buildtmp/uv/bin:$PATH UV_CACHE_DIR=/opt/buildtmp/uv-cache
+        export UV_PYTHON_INSTALL_DIR=/opt/miss_alignment/python UV_PROJECT_ENVIRONMENT=/opt/miss_alignment/venv
+        export SETUPTOOLS_SCM_PRETEND_VERSION="{{ MA_VERSION }}"
+        tar -xzf /opt/src/miss-alignment-src.tar.gz -C /opt/miss_alignment
+        (cd /opt/miss_alignment/src && uv sync --frozen --group cu129 --no-dev --no-editable \
+            --no-install-package zenodo-get --python 3.12)
+        rm -rf /opt/miss_alignment/src
+        /opt/miss_alignment/venv/bin/miss-alignment --help > /dev/null
+        /opt/miss_alignment/venv/bin/python -c 'import torch, torch_projectors; print("miss-alignment env: torch", torch.__version__, "cuda", torch.version.cuda)'
+    fi
+
     # The test variant IS this stage (build_sif.sh --variant test): make it runnable.
     if [ "{{ VARIANT }}" = "test" ]; then
         ln -sf /opt/warp/bin/warp-entry /usr/local/bin/warp
@@ -140,6 +162,7 @@ Stage: final
 %files from build
     /opt/warp /opt/warp
     /opt/warp_runtime /opt/warp_runtime
+    /opt/miss_alignment /opt/miss_alignment
 
 %post
     set -euo pipefail
@@ -160,6 +183,10 @@ Stage: final
     # Writable places under a read-only rootfs (--containall gives a fresh, writable $HOME).
     export DOTNET_BUNDLE_EXTRACT_BASE_DIR="${TMPDIR:-/tmp}/warp-dotnet-bundle"
     export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+    # Network weights: Warp's (WARP_MODELS) and Miss-Alignment's (MISS_ALIGNMENT_CACHE_DIR). The image's
+    # own folder is empty; the launcher binds a models folder and points both here when one is configured.
+    export WARP_MODELS="${WARP_MODELS:-/opt/warp/models}"
+    export MISS_ALIGNMENT_CACHE_DIR="${MISS_ALIGNMENT_CACHE_DIR:-$WARP_MODELS/miss_alignment}"
 
 %runscript
     exec /opt/warp/bin/warp-entry "$@"
@@ -182,3 +209,5 @@ Stage: final
         warp slurm check                     (cluster submission: token + endpoint)
         warp cluster-help                    (how to run a WarpTools command on the cluster)
         warp preflight                       (libraries, GPU, versions)
+        warp miss-alignment ...              (Miss-Alignment: infer / train / download-models)
+        warp models | warp fetch-models DIR  (denoiser and alignment weights)
