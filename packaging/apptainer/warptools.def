@@ -169,7 +169,7 @@ Stage: final
     # X11 client side for the Avalonia GUIs (Skia renders in software if there is no GLX).
     dnf -y install libX11 libXext libXrender libXi libXcursor libXrandr libICE libSM libxkbcommon \
         fontconfig dejavu-sans-fonts dejavu-sans-mono-fonts dejavu-serif-fonts glibc-langpack-en \
-        procps-ng hostname binutils
+        procps-ng hostname binutils findutils which
     dnf clean all
     rm -rf /var/cache/dnf
     ln -s /opt/warp/bin/warp-entry /usr/local/bin/warp

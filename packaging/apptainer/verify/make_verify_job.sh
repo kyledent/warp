@@ -75,7 +75,9 @@ np.save("truth.npy", obj)
 PYEOF
     timeout 900 Noise2Map --half1 half1.mrc --half2 half2.mrc --angpix 2 --iterations 60 --batchsize 2 \
         --window 64 --mini_model --dont_augment --gpuid_network 0 --gpuid_preprocess 0 2>&1 | tail -15
-    out=$(find . -name "*.mrc" -newer truth.npy ! -name "half*.mrc" | head -1)
+    shopt -s globstar nullglob
+    out=""
+    for f in **/*.mrc; do case "$f" in half1.mrc|half2.mrc) ;; *) [ "$f" -nt truth.npy ] && { out="$f"; break; } ;; esac; done
     echo "denoised output: ${out:-NONE}"
     [ -n "$out" ] || exit 8
     $PY - "$out" <<"PYEOF"
