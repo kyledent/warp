@@ -21,6 +21,9 @@ namespace WarpTools.Commands
         [Option("device_list", HelpText = "Space-separated list of GPU IDs to use for processing. Default: all GPUs in the system")]
         public IEnumerable<int> DeviceList { get; set; }
 
+        [Option("resume", Default = false, HelpText = "Skip items this exact command already completed with identical settings in an earlier run, provided their metadata is unchanged since. Every completed item is recorded under <output>/completed/ whether or not this flag is given, so an interrupted run can be resumed.")]
+        public bool Resume { get; set; }
+
         [Option("perdevice", Default = 1, HelpText = "Number of processes per GPU")]
         public int ProcessesPerDevice { get; set; }
 
@@ -140,6 +143,19 @@ namespace WarpTools.Commands
             // every command gets the right m.Path and m.DataPath automatically.
             var tasks = new List<TaskItem>();
             var taskIdToItem = new Dictionary<string, T>();
+            var taskIdToTask = new Dictionary<string, TaskItem>();
+
+            // Completion records (see CompletionRecord): always written on success, consulted
+            // only with --resume. A resumed item is reported as processed without a task.
+            string completedDir = Path.Combine(OutputProcessing, "completed");
+            var resumed = new List<T>();
+
+            // A command with an onSuccess hook may collect results across items (particle
+            // export builds one STAR; the handedness check sums scores), which a skipped item
+            // would silently drop. Resume only commands whose per-item work is self-contained.
+            bool resume = Resume && onSuccess == null;
+            if (Resume && !resume)
+                Console.WriteLine("--resume is not supported by this command (it collects results item by item); processing all items.");
 
             for (int i = 0; i < InputSeries.Length; i++)
             {
@@ -158,8 +174,32 @@ namespace WarpTools.Commands
 
                 TaskItem task = buildTask(m, i);
                 if (task == null) continue;   // buildTask returns null to skip this item
+
+                if (resume && CompletionRecord.IsComplete(completedDir, task, m.XMLPath))
+                {
+                    // Left as recorded on disk: no SaveMeta, so the record stays valid.
+                    m.ProcessingStatus = ProcessingStatus.Processed;
+                    resumed.Add(m);
+                    continue;
+                }
+
                 tasks.Add(task);
                 taskIdToItem[task.TaskId] = m;
+                taskIdToTask[task.TaskId] = task;
+            }
+
+            if (resume)
+                Console.WriteLine(resumed.Count > 0
+                    ? $"Resuming: {resumed.Count}/{resumed.Count + tasks.Count} item(s) already completed by this command with identical settings and unchanged metadata; skipping them."
+                    : "Resuming: no item has a valid completion record for this command and settings; processing all.");
+
+            if (resumed.Count > 0 && tasks.Count == 0)
+            {
+                // Nothing left to do: start no workers, but leave the same snapshot files a full run would.
+                WriteItemSnapshots(Path.Combine(OutputProcessing, "processed_items.json"),
+                                   Path.Combine(OutputProcessing, "failed_items.json"),
+                                   resumed, new List<T>());
+                return (resumed, new List<T>());
             }
 
             // Per-item processing logs go to <output>/logs/<task_id>.log, matching the
@@ -178,7 +218,7 @@ namespace WarpTools.Commands
             // any tasks land.
             pool.Enqueue(tasks);
 
-            var processed = new List<T>();
+            var processed = new List<T>(resumed);
             var failed = new List<T>();
 
             string jsonSuccessPath = Path.Combine(OutputProcessing, "processed_items.json");
@@ -270,10 +310,21 @@ namespace WarpTools.Commands
                             }
 
                             if (itemSucceeded)
+                            {
                                 processed.Add(item);
+                                // After every write the success path makes, so the recorded
+                                // metadata hash is the state a later --resume will compare.
+                                try { CompletionRecord.MarkComplete(completedDir, taskIdToTask[result.TaskId], item.XMLPath); }
+                                catch (Exception recEx) { Console.Error.WriteLine($"Warning: could not record completion of {item.Name}: {recEx.Message}"); }
+                            }
+                            else
+                            {
+                                try { CompletionRecord.Clear(completedDir, taskIdToTask[result.TaskId]); } catch { }
+                            }
                         }
                         else
                         {
+                            try { CompletionRecord.Clear(completedDir, taskIdToTask[result.TaskId]); } catch { }
                             item.UnselectManual = true;
                             item.ProcessingStatus = ProcessingStatus.LeaveOut;
                             item.SaveMeta();
