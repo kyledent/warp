@@ -15,6 +15,7 @@ From: rockylinux/rockylinux:8.10
 Stage: build
 
 %arguments
+    CUDA=12.9
     CUDA_ARCHS=61;70;89;120
     BUILD_JOBS=4
     MICROMAMBA_VERSION=2.0.5
@@ -52,10 +53,17 @@ Stage: build
 
     # No GPU inside a build, so no __cuda virtual package: the README's prescribed override, without
     # which the solver refuses pytorch=*=cuda129*.
-    export CONDA_OVERRIDE_CUDA=12.9
+    export CONDA_OVERRIDE_CUDA={{ CUDA }}
+    # CUDA 12.9 -> warp_build.yml; CUDA 13.x -> warp_build_cuda13.yml (no Pascal/Volta).
+    case "{{ CUDA }}" in
+        12.*) WARP_ENV_FILE=warp_build.yml ;;
+        13.*) WARP_ENV_FILE=warp_build_cuda13.yml ;;
+        *) echo "unsupported CUDA={{ CUDA }}" >&2; exit 1 ;;
+    esac
+    [ -f "$WARP_ENV_FILE" ] || { echo "$WARP_ENV_FILE not in the source tree" >&2; exit 1; }
 
     # The repository's build environment, verbatim.
-    micromamba create -y -p /opt/warp_build -f warp_build.yml
+    micromamba create -y -p /opt/warp_build -f "$WARP_ENV_FILE"
     micromamba run -p /opt/warp_build bash -c '
         set -euo pipefail
         export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES={{ CUDA_ARCHS }}"
@@ -88,16 +96,27 @@ Stage: build
 
     # Runtime env: the libraries the apps load, pinned to the build env's resolved versions.
     micromamba list -p /opt/warp_build --json > /opt/warp/build-env.json
-    /opt/warp_build/bin/python - <<'PY'
+    /opt/warp_build/bin/python - "$WARP_ENV_FILE" <<'PY'
 import json
 names = {"pytorch", "libtorch", "fftw", "libtiff", "fontconfig", "freetype", "python", "cuda-version",
          "cuda-cudart", "libcufft", "libcublas", "libcurand", "cuda-nvrtc", "libstdcxx", "libgcc"}
 pkgs = {p["name"]: p for p in json.load(open("/opt/warp/build-env.json"))}
 pins = ["%s==%s=%s" % (n, pkgs[n]["version"], pkgs[n]["build_string"]) for n in sorted(names & pkgs.keys())]
 open("/opt/src/runtime-pins.txt", "w").write("\n".join(pins) + "\n")
+# The runtime env uses the build env's own channels, in order, so a variant cannot mix CUDA lines.
+import sys
+chans, inside = [], False
+for line in open(sys.argv[1]):
+    if line.startswith("channels:"): inside = True; continue
+    if inside and line.lstrip().startswith("- "):
+        c = line.split("- ", 1)[1].split("#")[0].strip()
+        if c != "nodefaults": chans.append(c)
+    elif inside and line.strip() and not line.startswith(" "): inside = False
+open("/opt/src/runtime-channels.txt", "w").write(" ".join("-c " + c for c in chans))
+print("runtime channels:", chans)
 print("\n".join(pins))
 PY
-    micromamba create -y -p /opt/warp_runtime -c nvidia/label/cuda-12.9.0 -c conda-forge \
+    micromamba create -y -p /opt/warp_runtime $(cat /opt/src/runtime-channels.txt) \
         --override-channels -f /opt/src/runtime-pins.txt
     cp /opt/src/runtime-pins.txt /opt/warp/runtime-pins.txt
     # No `micromamba clean`: the package cache may be the host's (bound in), and the runtime
@@ -116,6 +135,7 @@ Stage: final
 
 %arguments
     VARIANT=runtime
+    CUDA=12.9
 
 %files from build
     /opt/warp /opt/warp
@@ -151,7 +171,7 @@ Stage: final
 
 %labels
     org.opencontainers.image.title warptools
-    org.opencontainers.image.description WarpTools/MTools/MCore + Avalonia Warp/M/Cube GUIs, CUDA 12.9
+    org.opencontainers.image.description WarpTools/MTools/MCore + Avalonia Warp/M/Cube GUIs, CUDA {{ CUDA }}
     warp.provenance /opt/warp/PROVENANCE
 
 %help

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Build the warptools SIF from this repository's committed tree.
 #
-#   packaging/apptainer/build_sif.sh [--variant runtime|test] [--site DIR] [--out DIR]
+#   packaging/apptainer/build_sif.sh [--variant runtime|test] [--cuda 12.9|13.0] [--site DIR] [--out DIR]
 #                                    [--context DIR] [--jobs N] [--archs "61;70;89;120"] [--allow-dirty]
 #                                    [--pkgs-cache DIR]
 #
+# --cuda:  12.9 (warp_build.yml; also Pascal/Volta) or 13.0 (warp_build_cuda13.yml; R580+ drivers,
+#          compute capability 7.5 and up). Sets the default --archs for that toolkit.
 # runtime: two-stage image, published apps + pinned runtime env (what users get).
 # test:    the build stage itself (SDK, sources, built Tests), cut from the same def so the two
 #          cannot drift; used to run the test suite on GPU nodes.
@@ -19,10 +21,11 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(git -C "$HERE" rev-parse --show-toplevel)"
-VARIANT=runtime SITE="" OUT="${WARP_SIF_OUT:-$PWD}" CONTEXT="" JOBS=4 ARCHS="61;70;89;120" DIRTY=0 PKGS=""
+VARIANT=runtime CUDA=12.9 SITE="" OUT="${WARP_SIF_OUT:-$PWD}" CONTEXT="" JOBS=4 ARCHS="" DIRTY=0 PKGS=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --variant) VARIANT="$2"; shift 2 ;;
+        --cuda) CUDA="$2"; shift 2 ;;
         --site) SITE="$(cd "$2" && pwd)"; shift 2 ;;
         --out) OUT="$2"; shift 2 ;;
         --context) CONTEXT="$2"; shift 2 ;;
@@ -34,6 +37,11 @@ while [ $# -gt 0 ]; do
     esac
 done
 case "$VARIANT" in runtime|test) ;; *) echo "--variant runtime|test" >&2; exit 2 ;; esac
+case "$CUDA" in
+    12.*) ARCHS="${ARCHS:-61;70;89;120}" ;;        # Pascal dev GPUs, Volta, Ada, Blackwell
+    13.*) ARCHS="${ARCHS:-75;86;89;120}" ;;        # CUDA 13 floor is 7.5
+    *) echo "--cuda 12.9|13.0" >&2; exit 2 ;;
+esac
 
 dirty_files=$(git -C "$REPO" status --porcelain | wc -l)
 if [ "$dirty_files" -gt 0 ] && [ "$DIRTY" -ne 1 ]; then
@@ -74,6 +82,7 @@ head=$(git -C "$REPO" rev-parse HEAD)
             && echo "site_uncommitted_files=$(git -C "$SITE" status --porcelain | wc -l)"
     fi
     echo "variant=$VARIANT"
+    echo "cuda=$CUDA"
     echo "cuda_archs=$ARCHS"
     echo "tarball_sha256=$(sha256sum "$CONTEXT/warp-src.tar.gz" | cut -d' ' -f1)"
 } > "$CONTEXT/PROVENANCE"
@@ -99,7 +108,7 @@ else
     cp "$HERE/warptools.def" "$DEF"
 fi
 
-SIF="$OUT/warptools-${VARIANT}-cuda12.9-$(date -u +%Y%m%d)-${head:0:8}.sif"
+SIF="$OUT/warptools-${VARIANT}-cuda${CUDA}-$(date -u +%Y%m%d)-${head:0:8}.sif"
 echo "building $SIF  (archs $ARCHS, jobs $JOBS, context $CONTEXT)"
 cd "$CONTEXT"
 BIND_ARGS=()
@@ -108,7 +117,7 @@ if [ -n "$PKGS" ]; then
     BIND_ARGS=(--bind "$(cd "$PKGS" && pwd):/mnt")
 fi
 apptainer build --fakeroot --force "${BIND_ARGS[@]}" \
-    --build-arg "CUDA_ARCHS=$ARCHS" --build-arg "BUILD_JOBS=$JOBS" --build-arg "VARIANT=$VARIANT" \
+    --build-arg "CUDA=$CUDA" --build-arg "CUDA_ARCHS=$ARCHS" --build-arg "BUILD_JOBS=$JOBS" --build-arg "VARIANT=$VARIANT" \
     "$SIF" "$DEF"
 sha256sum "$SIF" | tee "$SIF.sha256"
 ls -la "$SIF"

@@ -12,6 +12,7 @@ warp <command> [args...]
   slurm <submit|cancel|status|check>   cluster submission over slurmrestd
   cluster-help                     how to run a WarpTools command on the cluster
   preflight                        libraries, GPU, versions (exit 1 on a hard problem)
+  check-gpu                        exit 3 unless every visible GPU is an architecture this image was built for
   provenance                       what source this image was built from
   <anything else>                  executed as a command inside the image
 EOF
@@ -49,6 +50,22 @@ preflight() {
     return $bad
 }
 
+check_gpu() {
+    # The image records the architectures it was compiled for; a GPU outside them fails at its first
+    # kernel ("no kernel image is available"), so a worker job checks before it starts work.
+    local archs caps bad=0 c
+    archs=$(sed -n 's/^cuda_archs=//p' "$W/PROVENANCE")
+    [ -n "$archs" ] || { echo "check-gpu: image records no cuda_archs; not checking"; return 0; }
+    command -v nvidia-smi >/dev/null 2>&1 || { echo "check-gpu: no GPU visible (started without --nv?)" >&2; return 3; }
+    caps=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | tr -d '.' | sort -u)
+    [ -n "$caps" ] || { echo "check-gpu: nvidia-smi reports no GPU" >&2; return 3; }
+    for c in $caps; do
+        case ";$archs;" in *";$c;"*) ;; *) bad=1; echo "check-gpu: this GPU is sm_$c; the image was built for $archs ($(sed -n 's/^cuda=//p' "$W/PROVENANCE") build)" >&2 ;; esac
+    done
+    [ $bad -eq 0 ] && echo "check-gpu: sm_$(echo $caps | tr ' ' ',') supported by this image ($archs)"
+    [ $bad -eq 0 ] || return 3
+}
+
 cluster_help() {
     cat <<EOF
 Run any distributed WarpTools command on the cluster by adding:
@@ -77,6 +94,7 @@ case "$cmd" in
     slurm)      exec "$W/bin/warp-slurm" "$@" ;;
     cluster-help) cluster_help ;;
     preflight)  preflight ;;
+    check-gpu)  check_gpu ;;
     provenance) cat "$W/PROVENANCE" "$W/runtime-pins.txt" ;;
     *)
         if [ -x "$W/bin/$cmd" ]; then exec "$W/bin/$cmd" "$@"; fi

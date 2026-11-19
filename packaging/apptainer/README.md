@@ -10,7 +10,13 @@ end and the worker on the compute nodes.**
 ```bash
 packaging/apptainer/build_sif.sh --site /path/to/site-config --out /path/to/sifs   # runtime image
 packaging/apptainer/build_sif.sh --variant test --out /path/to/sifs                 # + SDK and built tests
+packaging/apptainer/build_sif.sh --cuda 13.0 ...                                    # CUDA 13 (default 12.9)
 ```
+
+`--cuda 12.9` uses `warp_build.yml` and runs on Pascal and Volta as well; `--cuda 13.0` uses
+`warp_build_cuda13.yml` and needs an R580+ driver and compute capability 7.5 or newer. Worker
+jobs run `warp check-gpu` first, so an image sent to a GPU it has no code for stops with a
+reason instead of failing at its first kernel.
 
 - **Source.** The source is `git archive HEAD`, so an image is exactly one commit. A dirty tree is
   refused unless `--allow-dirty`. `PROVENANCE` (in the image at `/opt/warp/PROVENANCE`) records

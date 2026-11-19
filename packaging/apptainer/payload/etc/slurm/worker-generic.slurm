@@ -28,6 +28,8 @@ cat > "$WARP_CMD" <<'WARP_WORKER_COMMAND'
 WARP_WORKER_COMMAND
 
 BINDS="{{tasks_dir}},{{logs_dir}}${WARP_BINDS:+,$WARP_BINDS}"
+# Fail fast, with a reason, on a GPU this image has no code for (e.g. a CUDA 13 image on Volta).
+apptainer exec --containall --nv "$WARP_SIF" warp check-gpu || exit 3
 # --containall drops the scheduler's GPU scoping, so CUDA_VISIBLE_DEVICES is passed explicitly,
 # and only when set (an empty value would hide every GPU).
 exec apptainer exec --containall --nv ${CUDA_VISIBLE_DEVICES:+--env CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES} \
