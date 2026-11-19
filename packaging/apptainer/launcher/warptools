@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# warptools -- run the warptools image (WarpTools, MTools, MCore, Warp/M/Cube GUIs) as an ordinary
+# command on a RHEL 8 workstation, and orchestrate WarpTools work onto the SLURM cluster from it.
+#
+#   warptools WarpTools <command> [args...]      e.g. warptools WarpTools fs_motion_and_ctf --settings ...
+#   warptools MTools ... | warptools MCore ...
+#   warptools gui | m-gui | cube-gui             (needs an X11 display, e.g. ssh -X / -Y)
+#   warptools cluster-help                       how to send a WarpTools command's work to the cluster
+#   warptools slurm check                        is your cluster token valid?
+#   warptools preflight                          libraries, GPU, versions
+# Launcher options (before the command): --sif FILE, --bind DIR (repeatable), --dry-run
+#
+# Follows container_commands_dev's launcher pattern. Why a launcher at all: `--containall` is a
+# client-side apptainer flag, so no image can set it; this is the only place that default can live.
+# It keeps an active conda env or a `module load`ed library from shadowing what the image ships.
+# The price is that the container sees nothing of yours, so this script binds:
+#   * the working directory and the directory of every path in the arguments;
+#   * every absolute path inside a Warp .settings file named in the arguments (data, gain,
+#     processing folders are inside the file, not on the command line);
+#   * $WARPTOOLS_BINDS (colon-separated) and --bind DIR, for anything else;
+#   * the X11 socket + Xauthority for the GUIs, ~/.slurm (your cluster token), the host CA store.
+# The bind list and the image path are exported into the container (WARP_BINDS, WARP_SIF), so a
+# cluster worker job re-enters the SAME image with the SAME paths on a compute node.
+set -euo pipefail
+
+IMAGE_NAME="warptools"
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+HERE="$(dirname "${SELF}")"
+die() { printf 'warptools: %s\n' "$*" >&2; exit 1; }
+# Site defaults (WARPTOOLS_SHARED_PREFIXES, WARPTOOLS_BINDS, ...) may sit next to the launcher.
+[ -f "${HERE}/warptools.conf" ] && . "${HERE}/warptools.conf"
+warn() { printf 'warptools: warning: %s\n' "$*" >&2; }
+
+SIF="${WARPTOOLS_SIF:-}"
+DRY=0
+EXTRA_BINDS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run) DRY=1; shift ;;
+        --sif)     SIF="${2:-}"; [ -n "${SIF}" ] || die "--sif needs a file"; shift 2 ;;
+        --bind)    EXTRA_BINDS+=("${2:-}"); shift 2 ;;
+        *) break ;;
+    esac
+done
+ARGS=("$@")
+[ ${#ARGS[@]} -gt 0 ] || ARGS=(--help)
+
+[ -n "${SIF}" ] || SIF="$(ls -1 "${HERE}/${IMAGE_NAME}"-runtime-*.sif 2>/dev/null | sort -V | tail -1 || true)"
+[ -n "${SIF}" ] || die "no ${IMAGE_NAME}-runtime-*.sif next to ${SELF} and \$WARPTOOLS_SIF is not set"
+SIF="$(readlink -f "${SIF}")"
+[ -f "${SIF}" ] || die "image not found: ${SIF}"
+command -v apptainer >/dev/null 2>&1 || die "apptainer is not on your PATH"
+
+# --- binds ----------------------------------------------------------------------------------------
+BINDS=()
+add_bind() {
+    local p="$1" r b
+    [ -n "${p}" ] || return 0
+    case "${p}" in /*|./*|../*|[a-zA-Z0-9_]*) ;; *) return 0 ;; esac
+    case "${p}" in *[!a-zA-Z0-9._/@+=-]*) return 0 ;; esac
+    r="$(readlink -f "${p}" 2>/dev/null)" || return 0
+    [ -n "${r}" ] || return 0
+    if [ -e "${r}" ]; then
+        [ -d "${r}" ] || r="$(dirname "${r}")"
+    else
+        # Something the program will create: bind the nearest existing ancestor, or the output
+        # lands inside the container and vanishes when it exits.
+        while [ ! -e "${r}" ] && [ "${r}" != "/" ]; do r="$(dirname "${r}")"; done
+        [ -d "${r}" ] || return 0
+    fi
+    case "${r}" in /*/*) ;; *) return 0 ;; esac            # never bind / or a top-level directory
+    case "${r}" in /usr/*|/etc/*|/opt/*|/proc/*|/sys/*|/dev/*) return 0 ;; esac
+    for b in ${BINDS[@]+"${BINDS[@]}"}; do
+        case "${r}" in "${b}"|"${b}"/*) return 0 ;; esac
+    done
+    BINDS+=("${r}")
+}
+add_bind "${PWD}"
+for a in "${ARGS[@]}"; do
+    case "${a}" in
+        --*=*) add_bind "${a#*=}" ;;       # --opt=/path
+        -*) ;;
+        *) add_bind "${a}" ;;
+    esac
+done
+# Paths inside Warp settings files (Value="/abs/path" attributes).
+for a in "${ARGS[@]}"; do
+    case "${a}" in
+        *.settings)
+            [ -f "${a}" ] || continue
+            while IFS= read -r p; do add_bind "${p}"; done < <(grep -o 'Value="/[^"]*"' "${a}" | sed 's/^Value="//; s/"$//')
+            ;;
+    esac
+done
+IFS=: read -r -a _env_binds <<< "${WARPTOOLS_BINDS:-}"
+for b in ${_env_binds[@]+"${_env_binds[@]}"} ${EXTRA_BINDS[@]+"${EXTRA_BINDS[@]}"}; do add_bind "${b}"; done
+
+FLAGS=(--containall)
+for b in ${BINDS[@]+"${BINDS[@]}"}; do FLAGS+=(-B "${b}:${b}"); done
+
+# GPU (harmless without one; the GUIs and CPU commands still run).
+if [ -e /dev/nvidiactl ] || command -v nvidia-smi >/dev/null 2>&1; then
+    FLAGS+=(--nv)
+    [ -n "${CUDA_VISIBLE_DEVICES:-}" ] && FLAGS+=(--env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}")
+fi
+
+# X11 for the GUIs.
+if [ -n "${DISPLAY:-}" ]; then
+    FLAGS+=(--env "DISPLAY=${DISPLAY}")
+    [ -d /tmp/.X11-unix ] && FLAGS+=(-B /tmp/.X11-unix:/tmp/.X11-unix:ro)
+    xa="${XAUTHORITY:-$HOME/.Xauthority}"
+    if [ -f "${xa}" ]; then FLAGS+=(-B "${xa}:${xa}:ro" --env "XAUTHORITY=${xa}"); fi
+fi
+
+# Cluster submission: the user's own token, and the host's CA store for TLS to slurmrestd.
+[ -d "${HOME}/.slurm" ] && FLAGS+=(-B "${HOME}/.slurm:${HOME}/.slurm:ro")
+[ -d /etc/pki/tls/certs ] && FLAGS+=(-B /etc/pki:/etc/pki:ro)
+[ -n "${SLURM_JWT:-}" ] && export APPTAINERENV_SLURM_JWT="${SLURM_JWT}"
+
+# What a worker job needs to re-enter this image on a compute node.
+export APPTAINERENV_WARP_SIF="${SIF}"
+export APPTAINERENV_WARP_BINDS="$(IFS=,; echo "${BINDS[*]-}")"
+
+# Cluster mode sanity: the compute nodes must see the image and every bound path. A site lists its
+# shared storage in WARPTOOLS_SHARED_PREFIXES (colon-separated), e.g. in warptools.conf next to this file.
+if [ -n "${WARPTOOLS_SHARED_PREFIXES:-}" ] && printf '%s\n' "${ARGS[@]}" | grep -q -- '--cluster_script'; then
+    IFS=: read -r -a _shared <<< "${WARPTOOLS_SHARED_PREFIXES}"
+    for p in "${SIF}" ${BINDS[@]+"${BINDS[@]}"}; do
+        ok=0
+        for s in "${_shared[@]}"; do case "${p}" in "${s}"|"${s}"/*) ok=1 ;; esac; done
+        [ "${ok}" = 1 ] || warn "cluster mode: ${p} is not under ${WARPTOOLS_SHARED_PREFIXES}; compute nodes may not see it"
+    done
+fi
+
+CMD=(apptainer run "${FLAGS[@]}" --pwd "${PWD}" "${SIF}" "${ARGS[@]}")
+if [ "${DRY}" = 1 ]; then
+    printf '%q ' "${CMD[@]}"; echo
+    echo "# WARP_SIF=${SIF}"
+    echo "# WARP_BINDS=${APPTAINERENV_WARP_BINDS}"
+    exit 0
+fi
+exec "${CMD[@]}"

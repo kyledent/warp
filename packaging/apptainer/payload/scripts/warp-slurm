@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026, Diamond Light Source
+"""warp-slurm: the scheduler commands WarpTools' ClusterProvisioner runs, implemented over slurmrestd.
+
+The workstations this image serves have no SLURM client (no sbatch/scancel/squeue), so the
+cluster-config JSON points at this tool instead:
+
+    warp-slurm submit <script>   POST the script; prints "Submitted batch job <id>" (sbatch's line)
+    warp-slurm cancel <id>       DELETE the job (an already-gone job is not an error)
+    warp-slurm status [user]     one "<id>,<STATE>" line per job of the user (squeue -o '%i,%T')
+    warp-slurm check             report token, endpoint and partitions, without submitting anything
+
+The job description is taken from the script's own #SBATCH lines (the template WarpTools renders),
+so a user edits one familiar file. Supported: --job-name --partition --constraint --gres=gpu:N
+--gpus --cpus-per-task --mem --time --output --error --account --qos --nodes --exclude.
+
+Configuration (environment; site defaults in /opt/warp/etc/site.env):
+    WARP_SLURM_URL          https://host:port of slurmrestd
+    WARP_SLURM_API          API version, default v0.0.42
+    SLURM_JWT               a token; otherwise read from WARP_SLURM_TOKEN_FILE or the default files
+    WARP_SLURM_TOKEN_FILE   a bare JWT, or a JSON cache holding a SLURM_JWT field
+    WARP_SLURM_CAFILE       CA bundle for TLS (default: the host's, if bound in)
+    WARP_SIF, WARP_BINDS    forwarded into every job, so the worker template can re-enter this image
+
+A site sets WARP_SLURM_URL, WARP_SLURM_TOKEN_FILE and WARP_SLURM_TOKEN_HELP in site.env.
+"""
+import base64
+import json
+import os
+import re
+import ssl
+import sys
+import time
+import urllib.error
+import urllib.request
+
+SITE_ENV = "/opt/warp/etc/site.env"
+DEFAULT_TOKEN_FILES = ["~/.slurm/jwt"]   # sites point WARP_SLURM_TOKEN_FILE at their own cache
+FORWARD_ENV = ["WARP_SIF", "WARP_BINDS", "LANG"]
+
+
+def load_site_env():
+    if not os.path.isfile(SITE_ENV):
+        return
+    for line in open(SITE_ENV):
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        os.environ.setdefault(k.strip(), v.strip().strip('"'))
+
+
+def die(msg, code=2):
+    sys.stderr.write("warp-slurm: %s\n" % msg)
+    sys.exit(code)
+
+
+# ---- token -------------------------------------------------------------------------------
+def read_token(path):
+    """A bare JWT, SLURM_JWT=<jwt>, or a JSON cache with a SLURM_JWT field (read the FIELD:
+    pointing a reader at the cache raw sends the whole JSON as the token)."""
+    text = open(path).read().strip()
+    if text.startswith("{"):
+        return (json.loads(text).get("SLURM_JWT") or "").strip()
+    return text.split("=", 1)[1].strip() if text.startswith("SLURM_JWT=") else text
+
+
+def token_claims(token):
+    """The JWT payload (base64url JSON). Needs no secret: it lets us check expiry locally, which
+    matters because slurmrestd's /ping answers normally with an expired token."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return None
+
+
+def get_token():
+    tok = os.environ.get("SLURM_JWT", "").strip()
+    src = "$SLURM_JWT"
+    if not tok:
+        files = [os.environ["WARP_SLURM_TOKEN_FILE"]] if os.environ.get("WARP_SLURM_TOKEN_FILE") else DEFAULT_TOKEN_FILES
+        for f in files:
+            p = os.path.expanduser(f)
+            if os.path.isfile(p):
+                tok, src = read_token(p), p
+                break
+    if not tok:
+        die("no SLURM token: set SLURM_JWT, or WARP_SLURM_TOKEN_FILE, or create one of %s.%s"
+            % (", ".join(DEFAULT_TOKEN_FILES), " " + os.environ["WARP_SLURM_TOKEN_HELP"] if os.environ.get("WARP_SLURM_TOKEN_HELP") else ""))
+    claims = token_claims(tok) or {}
+    exp = claims.get("exp")
+    if exp and exp < time.time() + 60:
+        die("the SLURM token from %s expired at %s.%s" % (
+            src, time.strftime("%Y-%m-%d %H:%M", time.localtime(exp)),
+            " " + os.environ["WARP_SLURM_TOKEN_HELP"] if os.environ.get("WARP_SLURM_TOKEN_HELP") else ""))
+    user = claims.get("sun") or os.environ.get("USER") or ""
+    return tok, user, src, claims
+
+
+# ---- REST --------------------------------------------------------------------------------
+def ssl_context():
+    for f in [os.environ.get("WARP_SLURM_CAFILE"), "/etc/pki/tls/certs/ca-bundle.crt",
+              "/etc/ssl/certs/ca-certificates.crt"]:
+        if f and os.path.isfile(f):
+            return ssl.create_default_context(cafile=f)
+    return ssl.create_default_context()
+
+
+def request(method, path, body=None, base="slurm"):
+    url = os.environ.get("WARP_SLURM_URL") or die("WARP_SLURM_URL is not set")
+    api = os.environ.get("WARP_SLURM_API", "v0.0.42")
+    tok, user, _, _ = get_token()
+    req = urllib.request.Request(
+        "%s/%s/%s/%s" % (url.rstrip("/"), base, api, path),
+        data=json.dumps(body).encode() if body is not None else None, method=method,
+        headers={"X-SLURM-USER-NAME": user, "X-SLURM-USER-TOKEN": tok, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=ssl_context()) as r:
+            raw = r.read().decode("utf-8", "replace")
+            return r.status, (json.loads(raw) if raw.strip() else {})
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", "replace")
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            data = {"errors": [{"error": " ".join(raw.split())[:400]}]}
+        return e.code, data
+
+
+def errors_of(data):
+    return "; ".join("%s (%s)" % (x.get("error") or x.get("description"), x.get("error_number"))
+                     for x in (data.get("errors") or []) if isinstance(x, dict))
+
+
+# ---- #SBATCH parsing ---------------------------------------------------------------------
+def minutes(t):
+    """SLURM time: M, M:S, H:M:S, D-H, D-H:M, D-H:M:S -> minutes (rounded up)."""
+    d = 0
+    if "-" in t:
+        d, t = t.split("-", 1)
+        d = int(d)
+        parts = [int(x) for x in t.split(":")] + [0, 0]
+        h, m, s = parts[0], parts[1], parts[2]
+    else:
+        parts = [int(x) for x in t.split(":")]
+        if len(parts) == 1:
+            h, m, s = 0, parts[0], 0
+        elif len(parts) == 2:
+            h, m, s = 0, parts[0], parts[1]
+        else:
+            h, m, s = parts[0], parts[1], parts[2]
+    return d * 1440 + h * 60 + m + (1 if s else 0)
+
+
+def megabytes(v):
+    m = re.fullmatch(r"(\d+)([KMGT]?)B?", v.strip().upper())
+    if not m:
+        die("cannot read --mem=%s" % v)
+    n, u = int(m.group(1)), m.group(2) or "M"
+    return {"K": max(1, n // 1024), "M": n, "G": n * 1024, "T": n * 1024 * 1024}[u]
+
+
+def sbatch_options(script_text):
+    opts = {}
+    for line in script_text.splitlines():
+        if not line.startswith("#SBATCH"):
+            if line.strip() and not line.startswith("#"):
+                break          # sbatch stops reading directives at the first command
+            continue
+        for tok in line[len("#SBATCH"):].split():
+            if tok.startswith("--"):
+                k, _, v = tok[2:].partition("=")
+                opts[k] = v
+    return opts
+
+
+def job_description(opts, script_path):
+    workdir = os.path.dirname(os.path.abspath(script_path))
+    env = ["PATH=/usr/local/bin:/usr/bin:/bin", "HOME=%s" % os.path.expanduser("~"),
+           "USER=%s" % os.environ.get("USER", "")]
+    env += ["%s=%s" % (k, os.environ[k]) for k in FORWARD_ENV if os.environ.get(k)]
+    job = {"name": opts.get("job-name", "warp-worker"), "current_working_directory": workdir,
+           "environment": env, "tasks": 1}
+    if opts.get("partition"):
+        job["partition"] = opts["partition"]
+    if opts.get("constraint"):
+        job["constraints"] = opts["constraint"]          # PLURAL: the singular is dropped silently
+    gpus = None
+    if opts.get("gres", "").startswith("gpu"):
+        gpus = opts["gres"].split(":")[-1]
+    if opts.get("gpus"):
+        gpus = opts["gpus"].split(":")[-1]
+    if gpus:
+        job["tres_per_node"] = "gres/gpu:%d" % int(gpus)
+    if opts.get("cpus-per-task"):
+        job["cpus_per_task"] = int(opts["cpus-per-task"])
+    if opts.get("mem"):
+        job["memory_per_node"] = {"number": megabytes(opts["mem"]), "set": True, "infinite": False}
+    if opts.get("time"):
+        job["time_limit"] = {"number": minutes(opts["time"]), "set": True, "infinite": False}
+    if opts.get("nodes"):
+        job["minimum_nodes"] = job["maximum_nodes"] = int(opts["nodes"])
+    for k, field in (("output", "standard_output"), ("error", "standard_error")):
+        if opts.get(k):
+            job[field] = opts[k]
+    for k in ("account", "qos"):
+        if opts.get(k):
+            job[k] = opts[k]
+    if opts.get("exclude"):
+        job["excluded_nodes"] = opts["exclude"]
+    return job
+
+
+# ---- commands ----------------------------------------------------------------------------
+def cmd_submit(script_path):
+    text = open(script_path).read()
+    job = job_description(sbatch_options(text), script_path)
+    # The submitter's token must not reach the job's environment.
+    script = text if text.startswith("#!") else "#!/bin/bash\n" + text
+    script = script.replace("\n", "\nunset SLURM_JWT\n", 1)
+    code, data = request("POST", "job/submit", {"script": script, "job": job})
+    jid = data.get("job_id")
+    if code >= 300 or not jid:
+        die("submission refused (HTTP %s): %s" % (code, errors_of(data) or data), 1)
+    print("Submitted batch job %s" % jid)
+
+
+def cmd_cancel(job_id):
+    code, data = request("DELETE", "job/%s" % job_id)
+    if code >= 300 and code != 404:
+        die("cancel %s refused (HTTP %s): %s" % (job_id, code, errors_of(data)), 1)
+
+
+def job_state(j):
+    s = j.get("job_state")
+    if isinstance(s, list):
+        s = s[0] if s else ""
+    return s or "UNKNOWN"
+
+
+def cmd_status(user=None):
+    _, tok_user, _, _ = get_token()
+    user = user or tok_user
+    code, data = request("GET", "jobs")
+    if code >= 300:
+        die("status query refused (HTTP %s): %s" % (code, errors_of(data)), 1)
+    for j in data.get("jobs") or []:
+        if j.get("user_name") == user:
+            print("%s,%s" % (j.get("job_id"), job_state(j)))
+
+
+def cmd_check():
+    tok, user, src, claims = get_token()
+    exp = claims.get("exp")
+    print("token:    %s (user %s, expires %s)" % (src, user, time.strftime("%Y-%m-%d %H:%M", time.localtime(exp)) if exp else "?"))
+    print("endpoint: %s  api %s" % (os.environ.get("WARP_SLURM_URL"), os.environ.get("WARP_SLURM_API", "v0.0.42")))
+    code, data = request("GET", "partitions")
+    if code >= 300:
+        die("partition query refused (HTTP %s): %s" % (code, errors_of(data)), 1)
+    names = sorted(p.get("name", "?") for p in data.get("partitions") or [])
+    print("partitions visible: %d (%s)" % (len(names), ", ".join(names[:12]) + (" ..." if len(names) > 12 else "")))
+    print("authenticated query OK")
+
+
+def main(argv):
+    load_site_env()
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__)
+        return
+    cmd, args = argv[0], argv[1:]
+    if cmd == "submit" and len(args) == 1:
+        cmd_submit(args[0])
+    elif cmd == "cancel" and len(args) == 1:
+        cmd_cancel(args[0])
+    elif cmd == "status" and len(args) <= 1:
+        cmd_status(args[0] if args else None)
+    elif cmd == "check" and not args:
+        cmd_check()
+    else:
+        die("usage: warp-slurm submit <script> | cancel <id> | status [user] | check")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

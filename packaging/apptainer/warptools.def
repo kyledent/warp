@@ -1,0 +1,156 @@
+# warptools: WarpTools / MTools / MCore + the Avalonia GUIs (Warp, M, Cube) in one Apptainer image,
+# for Linux workstations and SLURM compute nodes. Build with ./build_sif.sh (see README.md), which
+# stages a build context holding this file, the source tarball, PROVENANCE, payload/ and site/.
+#
+# Stage "build" reproduces the repository's own recipe: warp_build.yml (CUDA 12.9, conda-forge
+# PyTorch cuda129, cxx-compiler, sysroot 2.28, .NET 10), scripts/build-native-unix.sh and
+# scripts/publish-unix.sh, unchanged except CMAKE_CUDA_ARCHITECTURES (a build argument), then
+# publishes the three Avalonia GUIs.
+# Stage "final" carries only what runs: the published apps, a runtime conda env pinned to the exact
+# versions the build env resolved (so libtorch/cuFFT at run time are those linked against), and the
+# X11 client libraries the GUIs need. glibc 2.28, so it runs on RHEL/Rocky 8 hosts and newer.
+
+Bootstrap: docker
+From: rockylinux/rockylinux:8.10
+Stage: build
+
+%arguments
+    CUDA_ARCHS=61;70;89;120
+    BUILD_JOBS=4
+    MICROMAMBA_VERSION=2.0.5
+    VARIANT=runtime
+
+%files
+    warp-src.tar.gz /opt/src/warp-src.tar.gz
+    PROVENANCE /opt/src/PROVENANCE
+    payload /opt/src/payload
+    site /opt/src/site
+
+%post
+    set -euo pipefail
+    # make: warp_build.yml provides cmake and the compilers but no build tool (hosts supply it).
+    dnf -y install tar bzip2 xz gzip findutils which diffutils glibc-langpack-en ca-certificates make
+    curl -fsSL "https://micro.mamba.pm/api/micromamba/linux-64/{{ MICROMAMBA_VERSION }}" \
+        | tar -xj -C /usr/local bin/micromamba
+    export MAMBA_ROOT_PREFIX=/opt/mamba
+    # Never the host's /tmp or /var/tmp: apptainer binds both into a build, and they are often noexec.
+    export TMPDIR=/opt/buildtmp && mkdir -p "$TMPDIR"
+
+    # Source, verified against PROVENANCE before anything is built from it.
+    want=$(sed -n 's/^tarball_sha256=//p' /opt/src/PROVENANCE)
+    have=$(sha256sum /opt/src/warp-src.tar.gz | cut -d' ' -f1)
+    [ "$want" = "$have" ] || { echo "warp-src.tar.gz does not match PROVENANCE" >&2; exit 1; }
+    mkdir -p /opt/build && tar -xzf /opt/src/warp-src.tar.gz -C /opt/build
+    cd /opt/build/warp
+
+    # No GPU inside a build, so no __cuda virtual package: the README's prescribed override, without
+    # which the solver refuses pytorch=*=cuda129*.
+    export CONDA_OVERRIDE_CUDA=12.9
+
+    # The repository's build environment, verbatim.
+    micromamba create -y -p /opt/warp_build -f warp_build.yml
+    micromamba run -p /opt/warp_build bash -c '
+        set -euo pipefail
+        export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES={{ CUDA_ARCHS }}"
+        export DOTNET_CLI_TELEMETRY_OPTOUT=1 NUGET_PACKAGES=/opt/nuget
+        ./scripts/build-native-unix.sh -j {{ BUILD_JOBS }}
+        ./scripts/publish-unix.sh
+        for g in WarpAvalonia MAvalonia CubeAvalonia; do
+            dotnet publish "$g/$g.csproj" -c Release -r linux-x64 --self-contained true \
+                -p:PublishSingleFile=false -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0618,CS1998 \
+                -o "/opt/warp/gui/$g"
+        done
+        if [ "{{ VARIANT }}" = "test" ]; then
+            dotnet build Tests/Tests.csproj -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0618,CS1998
+        fi
+    '
+
+    # Install layout.
+    mkdir -p /opt/warp
+    cp -a Release/linux-x64/publish /opt/warp/bin
+    for g in WarpAvalonia MAvalonia CubeAvalonia; do
+        cp -a /opt/warp/bin/libNativeAcceleration.so /opt/warp/bin/libLibTorchSharp.so "/opt/warp/gui/$g/"
+    done
+    cp -a /opt/src/payload/scripts/. /opt/warp/bin/
+    cp -a /opt/src/payload/etc /opt/warp/etc
+    # Site configuration (endpoint, worker templates for that site's partitions) overrides the
+    # generic examples. Empty when built without --site.
+    cp -a /opt/src/site/. /opt/warp/etc/ 2>/dev/null || true
+    chmod 755 /opt/warp/bin/warp-slurm /opt/warp/bin/warp-entry
+    cp /opt/src/PROVENANCE /opt/warp/PROVENANCE
+
+    # Runtime env: the libraries the apps load, pinned to the build env's resolved versions.
+    micromamba list -p /opt/warp_build --json > /opt/warp/build-env.json
+    /opt/warp_build/bin/python - <<'PY'
+import json
+names = {"pytorch", "libtorch", "fftw", "libtiff", "fontconfig", "freetype", "python", "cuda-version",
+         "cuda-cudart", "libcufft", "libcublas", "libcurand", "cuda-nvrtc", "libstdcxx", "libgcc"}
+pkgs = {p["name"]: p for p in json.load(open("/opt/warp/build-env.json"))}
+pins = ["%s==%s=%s" % (n, pkgs[n]["version"], pkgs[n]["build_string"]) for n in sorted(names & pkgs.keys())]
+open("/opt/src/runtime-pins.txt", "w").write("\n".join(pins) + "\n")
+print("\n".join(pins))
+PY
+    micromamba create -y -p /opt/warp_runtime -c nvidia/label/cuda-12.9.0 -c conda-forge \
+        --override-channels -f /opt/src/runtime-pins.txt
+    cp /opt/src/runtime-pins.txt /opt/warp/runtime-pins.txt
+    micromamba clean -a -y
+
+    # The test variant IS this stage (build_sif.sh --variant test): make it runnable.
+    if [ "{{ VARIANT }}" = "test" ]; then
+        ln -sf /opt/warp/bin/warp-entry /usr/local/bin/warp
+        dnf -y install libX11 libICE libSM fontconfig dejavu-sans-fonts procps-ng hostname binutils
+        dnf clean all
+    fi
+
+Bootstrap: docker
+From: rockylinux/rockylinux:8.10
+Stage: final
+
+%arguments
+    VARIANT=runtime
+
+%files from build
+    /opt/warp /opt/warp
+    /opt/warp_runtime /opt/warp_runtime
+
+%post
+    set -euo pipefail
+    # X11 client side for the Avalonia GUIs (Skia renders in software if there is no GLX).
+    dnf -y install libX11 libXext libXrender libXi libXcursor libXrandr libICE libSM libxkbcommon \
+        fontconfig dejavu-sans-fonts dejavu-sans-mono-fonts dejavu-serif-fonts glibc-langpack-en \
+        procps-ng hostname binutils
+    dnf clean all
+    rm -rf /var/cache/dnf
+    ln -s /opt/warp/bin/warp-entry /usr/local/bin/warp
+
+%environment
+    export WARP_HOME=/opt/warp
+    export PATH=/opt/warp/bin:/opt/warp_runtime/bin:/usr/local/bin:/usr/bin:/bin
+    export LD_LIBRARY_PATH=/opt/warp_runtime/lib:/opt/warp/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+    export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    export DOTNET_CLI_TELEMETRY_OPTOUT=1
+    # Writable places under a read-only rootfs (--containall gives a fresh, writable $HOME).
+    export DOTNET_BUNDLE_EXTRACT_BASE_DIR="${TMPDIR:-/tmp}/warp-dotnet-bundle"
+    export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+%runscript
+    exec /opt/warp/bin/warp-entry "$@"
+
+%test
+    # Report, never fail the build (a failing %test discards the image).
+    /opt/warp/bin/warp-entry preflight || echo "%test: preflight reported problems (see above)"
+    exit 0
+
+%labels
+    org.opencontainers.image.title warptools
+    org.opencontainers.image.description WarpTools/MTools/MCore + Avalonia Warp/M/Cube GUIs, CUDA 12.9
+    warp.provenance /opt/warp/PROVENANCE
+
+%help
+    warptools image. Use through the `warptools` launcher, which runs the image contained and binds
+    your data. Inside, `warp <command> [args]`:
+        warp WarpTools ...   warp MTools ...   warp MCore ...
+        warp gui | m-gui | cube-gui          (needs an X11 display)
+        warp slurm check                     (cluster submission: token + endpoint)
+        warp cluster-help                    (how to run a WarpTools command on the cluster)
+        warp preflight                       (libraries, GPU, versions)

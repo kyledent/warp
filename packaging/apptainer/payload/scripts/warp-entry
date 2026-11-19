@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# warp-entry: the image's entry point. `warp <command> [args...]`.
+set -uo pipefail
+W=/opt/warp
+
+usage() {
+    cat <<'EOF'
+warp <command> [args...]
+  WarpTools|MTools|MCore|WarpWorker2|Noise2Map|Noise2Mic|Noise2Tomo|Noise2Half|EstimateWeights|
+  Frankenmap|MrcConverter ...      run that program
+  gui | m-gui | cube-gui           the Avalonia Warp / M / Cube GUIs (needs DISPLAY)
+  slurm <submit|cancel|status|check>   cluster submission over slurmrestd
+  cluster-help                     how to run a WarpTools command on the cluster
+  preflight                        libraries, GPU, versions (exit 1 on a hard problem)
+  provenance                       what source this image was built from
+  <anything else>                  executed as a command inside the image
+EOF
+}
+
+preflight() {
+    local bad=0
+    echo "== image";   sed 's/^/  /' "$W/PROVENANCE" | grep -E 'head=|branch=|uncommitted_files=|staged_at='
+    echo "== glibc";   ldd --version | head -1 | sed 's/^/  /'
+    echo "== programs"
+    for p in WarpTools MTools MCore WarpWorker2; do
+        [ -x "$W/bin/$p" ] && echo "  ok      $p" || { echo "  MISSING $p"; bad=1; }
+    done
+    for g in WarpAvalonia MAvalonia CubeAvalonia; do
+        [ -x "$W/gui/$g/$g" ] && echo "  ok      $g" || { echo "  MISSING $g"; bad=1; }
+    done
+    echo "== native libraries (unresolved dependencies are a hard failure)"
+    for so in "$W/bin/libNativeAcceleration.so" "$W/bin/libLibTorchSharp.so"; do
+        local missing
+        missing=$(ldd "$so" 2>&1 | grep -E 'not found' | grep -v -E 'libcuda\.so' || true)
+        if [ -n "$missing" ]; then echo "  BAD  $(basename "$so"):"; echo "$missing" | sed 's/^/       /'; bad=1
+        else echo "  ok   $(basename "$so")"; fi
+    done
+    echo "  linked CUDA runtime: $(ldd "$W/bin/libNativeAcceleration.so" | awk '/libcudart|libcufft/{print $1"->"$3}' | tr '\n' ' ')"
+    echo "  embedded GPU code:   $(strings -a "$W/bin/libNativeAcceleration.so" 2>/dev/null | grep -o -E 'sm_[0-9]+' | sort -u | tr '\n' ' ' || true)"
+    echo "== GPU"
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv,noheader 2>&1 | sed 's/^/  /'
+        nvidia-smi 2>/dev/null | grep -o 'CUDA Version: [0-9.]*' | sed 's/^/  driver /'
+    else
+        echo "  no nvidia-smi in the container (not started with --nv, or no GPU): GPU commands will fail"
+    fi
+    echo "== WarpTools"
+    "$W/bin/WarpTools" --version 2>&1 | head -3 | sed 's/^/  /' || { echo "  WarpTools did not start"; bad=1; }
+    return $bad
+}
+
+cluster_help() {
+    cat <<EOF
+Run any distributed WarpTools command on the cluster by adding:
+
+  --cluster_config $W/etc/slurm-rest.json \\
+  --cluster_script $W/etc/slurm/worker-<profile>.slurm \\
+  --pool_size <worker jobs> [--perdevice <processes per GPU>]
+
+Profiles (one GPU per worker job):
+$(for f in "$W"/etc/slurm/worker-*.slurm; do printf '  %-10s %s\n' "$(basename "$f" .slurm | sed 's/^worker-//')" "$(sed -n '2s/^# WarpTools worker job for the .* profile: //p' "$f")"; done)
+
+To change partition, time, CPUs or memory, copy a template, edit its #SBATCH lines and pass
+your copy to --cluster_script. Submission goes over slurmrestd with your own token; check it
+with:  warp slurm check
+The queue directory (default <output>/tasks) must be on storage the compute nodes see.
+EOF
+}
+
+cmd="${1:-}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    ""|-h|--help|help) usage ;;
+    gui)        exec "$W/gui/WarpAvalonia/WarpAvalonia" "$@" ;;
+    m-gui)      exec "$W/gui/MAvalonia/MAvalonia" "$@" ;;
+    cube-gui)   exec "$W/gui/CubeAvalonia/CubeAvalonia" "$@" ;;
+    slurm)      exec "$W/bin/warp-slurm" "$@" ;;
+    cluster-help) cluster_help ;;
+    preflight)  preflight ;;
+    provenance) cat "$W/PROVENANCE" "$W/runtime-pins.txt" ;;
+    *)
+        if [ -x "$W/bin/$cmd" ]; then exec "$W/bin/$cmd" "$@"; fi
+        exec "$cmd" "$@" ;;
+esac

@@ -1,0 +1,13 @@
+{
+  "submit": "warp-slurm submit {{script_path}}",
+  "submit_job_id_regex": "Submitted batch job (\\d+)",
+  "cancel": "warp-slurm cancel {{job_id}}",
+  "status_list": "warp-slurm status {{user}}",
+  "running_statuses": ["RUNNING", "COMPLETING"],
+  "pending_statuses": ["PENDING", "CONFIGURING", "REQUEUED", "RESIZING", "SUSPENDED"],
+  "status_poll_seconds": 30,
+  "registration_grace_seconds": 180,
+  "max_submissions_per_tick": 8,
+  "max_submission_multiplier": 3,
+  "cancel_parallelism": 4
+}
