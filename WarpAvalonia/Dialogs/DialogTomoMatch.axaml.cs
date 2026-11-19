@@ -76,11 +76,11 @@ public partial class DialogTomoMatch : Window
 
                 ProcessingOptionsTomoFullMatch seriesOptions = Options.GetProcessingTomoFullMatch();
                 seriesOptions.TemplateName = Helper.PathToName(PathTemplate);
-                seriesOptions.NormalizeScores = true;
 
-                item.MatchFull(seriesOptions, template[gpuID], (size, value, name) =>
+                // Same entry point the WarpTools worker uses (WarpWorker2 TomoMatch).
+                item.MatchLargeVolume(seriesOptions, template[gpuID], (fraction, message) =>
                 {
-                    Dispatcher.UIThread.InvokeAsync(() => TextProgress.Text = $"GPU {gpuID}: {name} ({(int)(value + 0.5f)}/{size.Elements()})");
+                    Dispatcher.UIThread.InvokeAsync(() => TextProgress.Text = $"GPU {gpuID}: {message} ({fraction:P0})");
                     return IsCanceled;
                 });
 

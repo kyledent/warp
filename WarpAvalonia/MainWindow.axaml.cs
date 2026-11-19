@@ -99,7 +99,6 @@ public partial class MainWindow : Window
         Options.Movement.Bfactor = -500m;
         Options.Grids.CTFX = 5;
         Options.Grids.CTFY = 5;
-        Options.Grids.CTFZ = 1;
         Options.Grids.MovementX = 3;
         Options.Grids.MovementY = 3;
         Options.Grids.MovementZ = 10;

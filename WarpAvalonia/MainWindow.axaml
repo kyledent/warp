@@ -209,7 +209,7 @@
                     <Grid Margin="6,4,0,0" ColumnDefinitions="*,*" RowDefinitions="110,Auto">
                         <!-- Grid miniatures -->
                         <c:GridMiniature Grid.Row="0" Grid.Column="0" Name="GridCTF"
-                                         PointsX="{Binding Grids.CTFX}" PointsY="{Binding Grids.CTFY}" PointsZ="{Binding Grids.CTFZ}"
+                                         PointsX="{Binding Grids.CTFX}" PointsY="{Binding Grids.CTFY}" PointsZ="1"
                                          Margin="10,0" VerticalAlignment="Center" Foreground="White" />
                         <c:GridMiniature Grid.Row="0" Grid.Column="1" Name="GridMovement"
                                          PointsX="{Binding Grids.MovementX}" PointsY="{Binding Grids.MovementY}" PointsZ="{Binding Grids.MovementZ}"
@@ -220,8 +220,6 @@
                             <c:ValueSlider Value="{Binding Grids.CTFX}" MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" />
                             <TextBlock Text=" x " VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding Grids.CTFY}" MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" />
-                            <TextBlock Text=" x " VerticalAlignment="Center" />
-                            <c:ValueSlider Value="{Binding Grids.CTFZ}" MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" />
                         </StackPanel>
                         <!-- Grid params: Movement -->
                         <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
