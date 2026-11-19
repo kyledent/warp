@@ -1,8 +1,24 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 # Keep release builds portable, while allowing a validation build to target just
 # its GPU with -DCMAKE_CUDA_ARCHITECTURES=89 (for example, an L40S).
+# CUDA 13 removed support for compute capability below 7.5 (Pascal, Volta), so the default list
+# depends on the toolkit. nvcc's version is read here because project() has not run yet.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES "61;70;75;80;86;89;90;100;120" CACHE STRING "CUDA architectures to build")
+    set(_WARP_CUDA_ARCHS "61;70;75;80;86;89;90;100;120")
+    if(DEFINED CMAKE_CUDA_COMPILER)
+        set(_WARP_NVCC "${CMAKE_CUDA_COMPILER}")
+    elseif(DEFINED ENV{CUDACXX})
+        set(_WARP_NVCC "$ENV{CUDACXX}")
+    else()
+        find_program(_WARP_NVCC nvcc)
+    endif()
+    if(_WARP_NVCC)
+        execute_process(COMMAND "${_WARP_NVCC}" --version OUTPUT_VARIABLE _WARP_NVCC_VERSION ERROR_QUIET)
+        if(_WARP_NVCC_VERSION MATCHES "release ([0-9]+)\\." AND NOT CMAKE_MATCH_1 LESS 13)
+            set(_WARP_CUDA_ARCHS "75;80;86;89;90;100;120")
+        endif()
+    endif()
+    set(CMAKE_CUDA_ARCHITECTURES "${_WARP_CUDA_ARCHS}" CACHE STRING "CUDA architectures to build")
 endif()
 PROJECT(NativeAcceleration LANGUAGES CUDA CXX)
 

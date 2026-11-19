@@ -213,6 +213,14 @@ If you're building on a machine without an NVIDIA GPU, set `CONDA_OVERRIDE_CUDA=
 ```
 CONDA_OVERRIDE_CUDA=12.9 conda env create -f warp_build.yml --channel-priority flexible
 ```
+To build with CUDA 13 (drivers R580 and newer), create the environment from `warp_build_cuda13.yml` instead. CUDA 13 cannot target GPUs below compute capability 7.5, so Pascal and Volta cards (e.g. GTX 10x0, V100) need the CUDA 12.9 environment; the native build's default architecture list follows the toolkit version automatically:
+```
+CONDA_OVERRIDE_CUDA=13.0 conda env create -f warp_build_cuda13.yml
+conda activate warp_build_cuda13
+./scripts/build-native-unix.sh
+./scripts/publish-unix.sh
+```
+
 The scripts detect the native architecture. Binaries will be in `Release/linux-x64/publish` on x86-64 or `Release/linux-arm64/publish` on ARM64. Use `./scripts/build-native-unix.sh -j 4` to limit concurrent compilation when memory is constrained.
 
 Here is some inspiration for an lmod module file (use `linux-arm64` in the path on ARM64):
