@@ -40,7 +40,7 @@ preflight() {
         else echo "  ok   $(basename "$so")"; fi
     done
     echo "  linked CUDA runtime: $(ldd "$W/bin/libNativeAcceleration.so" | awk '/libcudart|libcufft/{print $1"->"$3}' | tr '\n' ' ')"
-    echo "  embedded GPU code:   $(strings -a "$W/bin/libNativeAcceleration.so" 2>/dev/null | grep -o -E 'sm_[0-9]+' | sort -u | tr '\n' ' ' || true)"
+    echo "  built for:           CUDA $(sed -n 's/^cuda=//p' "$W/PROVENANCE"), architectures $(sed -n 's/^cuda_archs=//p' "$W/PROVENANCE")"
     echo "== GPU"
     if command -v nvidia-smi >/dev/null 2>&1; then
         nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv,noheader 2>&1 | sed 's/^/  /'

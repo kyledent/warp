@@ -121,6 +121,11 @@ namespace Warp.Tools
                         Console.WriteLine("");
                     }
                 }
+                else if (Result.Errors.Any(e => e.Tag == ErrorType.VersionRequestedError))
+                {
+                    // --version: the name and version printed above are the whole answer. There is no
+                    // verb, so the option listing below would dereference a missing VerbAttribute.
+                }
                 else
                 {
                     string ParsingErrors = HelpText.RenderParsingErrorsText(Result,
