@@ -58,10 +58,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow()
     {
         InitializeComponent();
+        LoadPreviousSettings();
         DataContext = this;
+        Closing += (s, e) => SavePreviousSettings();
 
         if (Program.DemoMode)
             LoadDemoVolume();
+    }
+
+    // WPF Cube keeps previous.settings next to Cube.exe; a Linux install or image is read-only,
+    // so the per-user application-data folder is used. The format is WPF Cube's
+    // (<Settings><Param Name= Value=/>, Cube/Options.cs). Of the options WPF Cube persists, this
+    // port has InputAverageSlices, DisplayIntensityMin/Max and BoxSize; any other Param in an
+    // existing file is kept as it is.
+    private static readonly string PreviousSettingsPath = System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Cube", "previous.settings");
+
+    private void LoadPreviousSettings()
+    {
+        if (!File.Exists(PreviousSettingsPath))
+            return;
+        try
+        {
+            var doc = System.Xml.Linq.XDocument.Load(PreviousSettingsPath);
+            string? Get(string name) => doc.Root?.Elements("Param")
+                .FirstOrDefault(p => (string?)p.Attribute("Name") == name)?.Attribute("Value")?.Value;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+            // Backing fields: no volume is loaded yet, so nothing to redraw.
+            if (int.TryParse(Get("InputAverageSlices"), System.Globalization.NumberStyles.Integer, inv, out int slices)) _inputAverageSlices = slices;
+            if (double.TryParse(Get("DisplayIntensityMin"), System.Globalization.NumberStyles.Float, inv, out double imin)) _displayIntensityMin = imin;
+            if (double.TryParse(Get("DisplayIntensityMax"), System.Globalization.NumberStyles.Float, inv, out double imax)) _displayIntensityMax = imax;
+            if (int.TryParse(Get("BoxSize"), System.Globalization.NumberStyles.Integer, inv, out int box)) _boxSize = box;
+        }
+        catch { }
+    }
+
+    private void SavePreviousSettings()
+    {
+        try
+        {
+            var doc = File.Exists(PreviousSettingsPath)
+                ? System.Xml.Linq.XDocument.Load(PreviousSettingsPath)
+                : new System.Xml.Linq.XDocument(new System.Xml.Linq.XElement("Settings"));
+            var root = doc.Root!;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+            void Set(string name, string value)
+            {
+                var node = root.Elements("Param").FirstOrDefault(p => (string?)p.Attribute("Name") == name);
+                if (node == null)
+                    root.Add(new System.Xml.Linq.XElement("Param",
+                        new System.Xml.Linq.XAttribute("Name", name), new System.Xml.Linq.XAttribute("Value", value)));
+                else
+                    node.SetAttributeValue("Value", value);
+            }
+
+            Set("InputAverageSlices", InputAverageSlices.ToString(inv));
+            Set("DisplayIntensityMin", ((decimal)DisplayIntensityMin).ToString(inv));
+            Set("DisplayIntensityMax", ((decimal)DisplayIntensityMax).ToString(inv));
+            Set("BoxSize", BoxSize.ToString(inv));
+
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PreviousSettingsPath)!);
+            var settings = new System.Xml.XmlWriterSettings { Encoding = System.Text.Encoding.Unicode, Indent = true, IndentChars = "\t" };
+            using var writer = System.Xml.XmlWriter.Create(PreviousSettingsPath, settings);
+            doc.Save(writer);
+        }
+        catch { }
     }
 
     private async void ButtonTomogramPath_OnClick(object? sender, RoutedEventArgs e)
