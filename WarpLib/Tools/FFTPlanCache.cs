@@ -85,9 +85,13 @@ namespace Warp.Tools
             }
         }
 
+        // A cuFFT plan belongs to the device that was current when it was created, so the key includes
+        // the current device. Without it, a process that transforms the same dimensions on two GPUs
+        // reused the first GPU's plan on the second, and cufftExec failed (CUFFT_EXEC_FAILED) or not,
+        // depending on context state.
         private static string GenerateKey(int3 dimensions, int batch, bool isForward)
         {
-            return $"{dimensions.X}-{dimensions.Y}-{dimensions.Z}-{batch}-{isForward}";
+            return $"{GPU.GetDevice()}-{dimensions.X}-{dimensions.Y}-{dimensions.Z}-{batch}-{isForward}";
         }
     }
 }
