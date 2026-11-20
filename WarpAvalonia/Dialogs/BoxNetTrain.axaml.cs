@@ -45,6 +45,11 @@ public partial class BoxNetTrain : Window
 
     private async void ButtonTrain_OnClick(object? sender, RoutedEventArgs e)
     {
+        // Training is not ported yet: the loop below only simulates a loss curve and saves nothing.
+        // Refuse rather than report a model that does not exist (WPF: Warp/Controls/BoxNet/BoxNetTrain.xaml.cs).
+        TextTrainStatus.Text = "BoxNet training is not yet available in this version. Use Warp (Windows) or WarpTools.";
+        return;
+#pragma warning disable CS0162
         string modelName = TextModelName.Text ?? "MyBoxNet";
         int diameter = Options.Picking.Diameter;
 
@@ -127,6 +132,8 @@ public partial class BoxNetTrain : Window
             }
         });
     }
+
+#pragma warning restore CS0162
 
     /// <summary>
     /// Render training loss curve on Canvas (replaces LiveCharts CartesianChart).

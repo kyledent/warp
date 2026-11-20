@@ -202,6 +202,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Not ported yet: the block below only simulates a run. Say so rather than report a refinement
+        // that did not happen (WPF: M/MainWindow.xaml.cs, PerformRefinementIteration).
+        Title = "M — Refinement is not yet available in this version. Use M (Windows) or MTools/MCore.";
+        return;
+#pragma warning disable CS0162
+
         ButtonRefine.IsEnabled = false;
         ButtonRefine.Content = "REFINING...";
 
@@ -233,6 +239,7 @@ public partial class MainWindow : Window
         ButtonRefine.IsEnabled = true;
         ButtonRefine.Content = "REFINE";
     }
+#pragma warning restore CS0162
 
     #endregion
 }
