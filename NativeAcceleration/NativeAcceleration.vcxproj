@@ -264,33 +264,63 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>NativeAcceleration</ProjectName>
   </PropertyGroup>
-  <PropertyGroup Label="ForceVS2022Toolchain">
-    <!-- Pin this project to the VS 2022 (v170) toolchain + CUDA 12.8 build customization,
-         even when the solution is opened in a newer VS (e.g. VS 18 / 2026) whose VCTargetsPath
-         only ships CUDA 13.3. Every Import below routes through $(VCTargetsPath), so this one
-         override redirects Microsoft.Cpp.*, the v143 toolset, and the CUDA customization to
-         the VS 2022 install. Only kicks in when the host VS lacks the 12.8 customization.
-         Adjust the path if VS 2022 is not the Community edition / not on the default drive. -->
-    <VCTargetsPath Condition="!Exists('$(VCTargetsPath)BuildCustomizations\CUDA 12.8.props')">C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\</VCTargetsPath>
+  <PropertyGroup Label="WarpDeps">
+    <!-- Prefix holding libtiff (include\tiffio.h, lib\tiff.lib), e.g. a conda env's Library folder.
+         Order: /p:WarpDepsPrefix=..., then the WARP_DEPS_PREFIX environment variable, then an active
+         conda env. The build stops with an error if none of these has tiffio.h. -->
+    <WarpDepsPrefix Condition="'$(WarpDepsPrefix)'=='' and '$(WARP_DEPS_PREFIX)'!=''">$(WARP_DEPS_PREFIX)</WarpDepsPrefix>
+    <WarpDepsPrefix Condition="'$(WarpDepsPrefix)'=='' and '$(CONDA_PREFIX)'!='' and Exists('$(CONDA_PREFIX)\Library\include\tiffio.h')">$(CONDA_PREFIX)\Library</WarpDepsPrefix>
+    <!-- The post-build step copies libtiff/fftw runtime DLLs from CONDA_BIN. Default: the same deps env. -->
+    <CONDA_BIN Condition="'$(CONDA_BIN)'==''">$(WarpDepsPrefix)\bin</CONDA_BIN>
+    <!-- Building this project on its own (not via Warp.sln) still puts its output next to the apps. -->
+    <SolutionDir Condition="'$(SolutionDir)'==''">$(MSBuildThisFileDirectory)..\</SolutionDir>
+    <!-- Host CPU instruction set for the C++ sources. AVX2 by default, matching CMake (-mavx2 -mf16c); the
+         AVX2 code paths are guarded by __AVX2__. Pre-Haswell CPUs: /p:WarpEnhancedInstructionSet=AdvancedVectorExtensions. -->
+    <WarpEnhancedInstructionSet Condition="'$(WarpEnhancedInstructionSet)'==''">AdvancedVectorExtensions2</WarpEnhancedInstructionSet>
+  </PropertyGroup>
+  <PropertyGroup Label="CudaBuildCustomization">
+    <!-- Find the CUDA 12.8 MSBuild customization without pinning to one VS install. Works with
+         VS 2022 (v170) and VS 2026 / 18 (v180). CUDA 12.x is required, because CUDA 13 cannot
+         target sm_52 (Maxwell).
+         Order: 1) the host VS's BuildCustomizations (CUDA installer integrated with this VS);
+                2) the CUDA 12.8 toolkit's own copy (no copying into VS needed, e.g. for VS 2026,
+                   which the 12.8 installer does not integrate with);
+                3) legacy: redirect to a VS 2022 Community install that has it (previous behaviour).
+         Override with /p:WarpCudaCustomizationDir=<dir containing "CUDA 12.8.props">. -->
+    <WarpCudaCustomizationDir Condition="'$(WarpCudaCustomizationDir)'=='' and Exists('$(VCTargetsPath)BuildCustomizations\CUDA 12.8.props')">$(VCTargetsPath)BuildCustomizations\</WarpCudaCustomizationDir>
+    <WarpCudaCustomizationDir Condition="'$(WarpCudaCustomizationDir)'=='' and '$(CUDA_PATH_V12_8)'!='' and Exists('$(CUDA_PATH_V12_8)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.8.props')">$(CUDA_PATH_V12_8)\extras\visual_studio_integration\MSBuildExtensions\</WarpCudaCustomizationDir>
+    <WarpLegacyVS2022VCTargets>C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\</WarpLegacyVS2022VCTargets>
+    <VCTargetsPath Condition="'$(WarpCudaCustomizationDir)'=='' and Exists('$(WarpLegacyVS2022VCTargets)BuildCustomizations\CUDA 12.8.props')">$(WarpLegacyVS2022VCTargets)</VCTargetsPath>
+    <WarpCudaCustomizationDir Condition="'$(WarpCudaCustomizationDir)'=='' and Exists('$(VCTargetsPath)BuildCustomizations\CUDA 12.8.props')">$(VCTargetsPath)BuildCustomizations\</WarpCudaCustomizationDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="WarpToolset">
+    <!-- v143 (MSVC 14.4x) is NVIDIA's supported host compiler for CUDA 12.x. VS 2026 can install it as
+         the "MSVC v143 - VS 2022 C++ x64/x86 build tools" component. Without it, fall back to the
+         host default (v145 on VS 2026). That works through the nvcc "allow-unsupported-compiler"
+         option set below, which NVIDIA does not support. -->
+    <!-- VS 2022 registers v143 under its own VCTargets; VS 2026 keeps it side by side in ..\v170\. -->
+    <WarpV143Props>Platforms\x64\PlatformToolsets\v143\Toolset.props</WarpV143Props>
+    <WarpPlatformToolset Condition="Exists('$(VCTargetsPath)$(WarpV143Props)') or Exists('$(VCTargetsPath)..\v170\$(WarpV143Props)')">v143</WarpPlatformToolset>
+    <WarpPlatformToolset Condition="'$(WarpPlatformToolset)'==''">$(DefaultPlatformToolset)</WarpPlatformToolset>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>$(WarpPlatformToolset)</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>$(WarpPlatformToolset)</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.8.props" />
+    <Import Project="$(WarpCudaCustomizationDir)CUDA 12.8.props" Condition="'$(WarpCudaCustomizationDir)'!=''" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -300,8 +330,17 @@
   </ImportGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.8.targets" />
+    <Import Project="$(WarpCudaCustomizationDir)CUDA 12.8.targets" Condition="'$(WarpCudaCustomizationDir)'!=''" />
   </ImportGroup>
+  <Target Name="WarpCheckCudaCustomization" BeforeTargets="PrepareForBuild" Condition="'$(WarpCudaCustomizationDir)'==''">
+    <Error Text="CUDA 12.8 MSBuild customization not found. Install the CUDA 12.8 toolkit (it sets CUDA_PATH_V12_8), or pass /p:WarpCudaCustomizationDir=&lt;folder containing 'CUDA 12.8.props'&gt;. CUDA 13 cannot be used: it does not support sm_52." />
+  </Target>
+  <Target Name="WarpCheckDeps" BeforeTargets="PrepareForBuild" Condition="!Exists('$(WarpDepsPrefix)\include\tiffio.h')">
+    <Error Text="libtiff not found (no tiffio.h under '$(WarpDepsPrefix)\include'). Activate a conda env with libtiff and fftw, set WARP_DEPS_PREFIX, or pass /p:WarpDepsPrefix=&lt;env&gt;\Library." />
+  </Target>
+  <Target Name="WarpReportToolchain" BeforeTargets="PrepareForBuild">
+    <Message Importance="high" Text="NativeAcceleration: VS $(VisualStudioVersion), PlatformToolset=$(PlatformToolset), CUDA customization=$(WarpCudaCustomizationDir)" />
+  </Target>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -323,11 +362,11 @@
       <OpenMPSupport>true</OpenMPSupport>
       <MinimalRebuild>false</MinimalRebuild>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>$(WarpEnhancedInstructionSet)</EnableEnhancedInstructionSet>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir);C:\Users\burta2\AppData\Local\miniforge3\envs\py\Library\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir)include;$(ProjectDir);$(CudaToolkitIncludeDir);$(WarpDepsPrefix)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
@@ -335,7 +374,7 @@
       <AdditionalDependencies>cudart.lib;cudadevrt.lib;cufft.lib;cublas.lib;curand.lib;cufftw.lib;tiff.lib</AdditionalDependencies>
       <Version>
       </Version>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(CudaToolkitLibDir)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(CudaToolkitLibDir);$(WarpDepsPrefix)\lib</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(CUDA_PATH_V12_8)\bin\cudart64_*.dll" "$(OutDir)"
@@ -343,7 +382,7 @@ copy "$(CUDA_PATH_V12_8)\bin\cufft64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cufftw64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cublas64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cublasLt64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" "$(OutDir)"
+if exist "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" copy "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\curand64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cusolver64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cusparse64_*.dll" "$(OutDir)"
@@ -353,7 +392,8 @@ copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\Lerc.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\liblzma.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\zstd.dll" "$(OutDir)"
-copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
+copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"
+if exist "$(CONDA_BIN)\jpeg8.dll" copy "$(CONDA_BIN)\jpeg8.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -382,17 +422,18 @@ copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
       <AdditionalOptions>/FS /openmp:experimental /Qvec-report:2 %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>$(WarpEnhancedInstructionSet)</EnableEnhancedInstructionSet>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir);C:\Users\burta2\AppData\Local\miniforge3\envs\py\Library\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir)include;$(ProjectDir);$(CudaToolkitIncludeDir);$(WarpDepsPrefix)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cudart.lib;cudadevrt.lib;cufft.lib;cublas.lib;curand.lib;cufftw.lib;tiff.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(CudaToolkitLibDir);$(WarpDepsPrefix)\lib</AdditionalLibraryDirectories>
       <Version>
       </Version>
     </Link>
@@ -402,7 +443,7 @@ copy "$(CUDA_PATH_V12_8)\bin\cufft64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cufftw64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cublas64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cublasLt64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" "$(OutDir)"
+if exist "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" copy "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\curand64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cusolver64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH_V12_8)\bin\cusparse64_*.dll" "$(OutDir)"
@@ -412,7 +453,8 @@ copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\Lerc.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\liblzma.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\zstd.dll" "$(OutDir)"
-copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
+copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"
+if exist "$(CONDA_BIN)\jpeg8.dll" copy "$(CONDA_BIN)\jpeg8.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>

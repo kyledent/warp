@@ -53,18 +53,25 @@
     <RootNamespace>LibTorchSharp</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-  <PropertyGroup Label="ForceVS2022Toolchain">
-    <!-- Pin this project to the VS 2022 (v170) toolchain so it builds with the v143 toolset
-         from the VS 2022 install, even when opened in a newer VS (e.g. VS 18 / 2026). Only
-         kicks in when the host VS does not ship the v143 platform toolset.
-         Adjust the path if VS 2022 is not the Community edition / not on the default drive. -->
-    <VCTargetsPath Condition="!Exists('$(VCTargetsPath)Platforms\x64\PlatformToolsets\v143\Toolset.props')">C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\</VCTargetsPath>
+  <PropertyGroup Label="WarpToolchain">
+    <!-- Build with v143 when the host VS has it: VS 2022, or VS 2026 with the "MSVC v143 - VS 2022 C++
+         x64/x86 build tools" component. Same compiler family as NativeAcceleration and CUDA 12.x.
+         Legacy: if the host lacks v143 but a VS 2022 Community install has it, redirect there
+         (previous behaviour). Otherwise use the host default toolset (v145 on VS 2026). -->
+    <WarpLegacyVS2022VCTargets>C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\</WarpLegacyVS2022VCTargets>
+    <!-- VS 2022 registers v143 under its own VCTargets; VS 2026 keeps it side by side in ..\v170\. -->
+    <WarpV143Props>Platforms\x64\PlatformToolsets\v143\Toolset.props</WarpV143Props>
+    <VCTargetsPath Condition="!Exists('$(VCTargetsPath)$(WarpV143Props)') and !Exists('$(VCTargetsPath)..\v170\$(WarpV143Props)') and Exists('$(WarpLegacyVS2022VCTargets)$(WarpV143Props)')">$(WarpLegacyVS2022VCTargets)</VCTargetsPath>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="WarpToolset">
+    <WarpPlatformToolset Condition="Exists('$(VCTargetsPath)$(WarpV143Props)') or Exists('$(VCTargetsPath)..\v170\$(WarpV143Props)')">v143</WarpPlatformToolset>
+    <WarpPlatformToolset Condition="'$(WarpPlatformToolset)'==''">$(DefaultPlatformToolset)</WarpPlatformToolset>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>$(WarpPlatformToolset)</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <VCToolsVersion>
     </VCToolsVersion>
@@ -72,7 +79,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>$(WarpPlatformToolset)</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -113,7 +120,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;LIBTORCHSHARP_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <DisableSpecificWarnings>4267;4244;4996;4251;4275;4190;4305;4522;4018;4273;4838;4101</DisableSpecificWarnings>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -153,7 +160,7 @@ copy /y $(PYTORCH_DIR)\lib\*.dll $(TargetDir)</Command>
       <CompileAs>CompileAsCpp</CompileAs>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
