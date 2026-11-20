@@ -3,9 +3,12 @@
         x:Class="MAvalonia.MainWindow"
         Title="M — Multi-Particle Refinement"
         Width="1200" Height="800" FontSize="12">
-    <Grid>
+    <Grid RowDefinitions="Auto,*">
+        <!-- GPU list with free memory; unticked GPUs are not used (WPF M: title bar) -->
+        <StackPanel Grid.Row="0" Name="PanelGPUStats" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4,4,4,0" />
+
         <!-- Landing panel (no population loaded) -->
-        <StackPanel Name="PanelLanding" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Grid.Row="1" Name="PanelLanding" HorizontalAlignment="Center" VerticalAlignment="Center">
             <Button Content="CREATE NEW POPULATION" FontSize="36" HorizontalAlignment="Center"
                     Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0"
                     Click="ButtonPopulationCreateNew_OnClick" />
@@ -15,7 +18,7 @@
         </StackPanel>
 
         <!-- Main panel (population loaded) -->
-        <Grid Name="PanelMain" IsVisible="False" RowDefinitions="Auto,*,Auto">
+        <Grid Grid.Row="1" Name="PanelMain" IsVisible="False" RowDefinitions="Auto,*,Auto">
             <!-- Header -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,8" Spacing="16">
                 <TextBlock Name="TextPopulationName" Text="" FontSize="24" FontWeight="Light" VerticalAlignment="Center" />

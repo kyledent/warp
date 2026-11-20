@@ -1,40 +1,118 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MAvalonia.Dialogs.DialogRefinementSettings" Title="Refinement Settings"
-        Width="700" Height="600" WindowStartupLocation="CenterOwner" FontSize="12">
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <TextBlock Grid.Row="0" Text="Refinement settings" FontSize="24" Margin="0,0,0,10" />
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="4">
-                <TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
-                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="Iterations:" Width="200" /><TextBox Name="TextIterations" Width="60" Text="5" /></StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="Initial resolution (%):" Width="200" /><TextBox Name="TextResolution" Width="60" Text="100" /></StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="Min particles per item:" Width="200" /><TextBox Name="TextMinParticles" Width="60" Text="10" /></StackPanel>
-                <Separator Margin="0,8" />
-                <TextBlock Text="Geometry" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
-                <CheckBox Content="Image warp" IsChecked="True" />
-                <CheckBox Content="Particle poses" IsChecked="True" />
-                <CheckBox Content="Magnification" />
-                <Separator Margin="0,8" />
-                <TextBlock Text="CTF" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
-                <CheckBox Content="Defocus" IsChecked="True" />
-                <CheckBox Content="Defocus grid search" />
-                <CheckBox Content="Phase shift" />
-                <CheckBox Content="Cs" />
-                <CheckBox Content="Zernike 1-3" />
-                <CheckBox Content="Zernike 5+" />
-                <Separator Margin="0,8" />
-                <TextBlock Text="Frame series" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
-                <CheckBox Content="Doming" />
-                <Separator Margin="0,8" />
-                <TextBlock Text="Tilt series" FontSize="16" FontWeight="SemiBold" Margin="0,4" />
-                <CheckBox Content="Stage angles" />
-                <CheckBox Content="Volume warp" />
-                <CheckBox Content="Tilt movies" />
-            </StackPanel>
-        </ScrollViewer>
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" Margin="0,10,0,0">
-            <Button Content="REFINE" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonRefine_OnClick" />
-            <Button Content="CANCEL" FontSize="16" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        Width="880" SizeToContent="Height" WindowStartupLocation="CenterOwner" FontSize="14">
+    <!-- DataContext: ProcessingOptionsMPARefine (Population.LastRefinementOptions), as WPF M's
+         M/Controls/DialogRefinementSettings.xaml; ranges and wording follow it. -->
+    <Window.Styles>
+        <Style Selector="NumericUpDown">
+            <Setter Property="MinWidth" Value="110" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="MinHeight" Value="30" />
+        </Style>
+        <Style Selector="TextBlock.h">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="Margin" Value="0,10,0,6" />
+        </Style>
+        <Style Selector="TextBlock.sub">
+            <Setter Property="Margin" Value="0,10,0,0" />
+        </Style>
+    </Window.Styles>
+    <StackPanel Margin="20" Spacing="4">
+        <TextBlock Text="Refinement settings" FontSize="24" Margin="0,0,0,10" />
+
+        <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="Refine for" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding NIterations}" Minimum="0" Maximum="5" Increment="1" FormatString="0" />
+            <TextBlock Text="sub-iterations, use" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding InitialResolutionPercent}" Minimum="10" Maximum="100" Increment="1" FormatString="0" />
+            <TextBlock Text="% of available resolution in first sub-iteration" VerticalAlignment="Center" />
         </StackPanel>
-    </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="Only use series with at least" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding MinParticlesPerItem}" Minimum="1" Maximum="10000" Increment="1" FormatString="0" />
+            <TextBlock Text="particles" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="400,*">
+            <StackPanel Grid.Column="0">
+                <TextBlock Classes="h" Text="Geometry:" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <CheckBox IsChecked="{Binding DoImageWarp}" Content="Image warp" />
+                    <TextBlock Text="grid:" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding ImageWarpWidth}" Minimum="1" Maximum="10" Increment="1" FormatString="0" ToolTip.Tip="Resolution in X dimension" />
+                    <TextBlock Text="×" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding ImageWarpHeight}" Minimum="1" Maximum="10" Increment="1" FormatString="0" ToolTip.Tip="Resolution in Y dimension" />
+                </StackPanel>
+                <CheckBox IsChecked="{Binding DoParticlePoses}" Content="Particle poses" />
+                <CheckBox IsChecked="{Binding DoMagnification}" Content="Anisotropic magnification" />
+
+                <TextBlock Classes="sub" Text="Frame series:" />
+                <CheckBox IsChecked="{Binding DoDoming}" Content="Doming" />
+
+                <TextBlock Classes="sub" Text="Tilt series:" />
+                <CheckBox IsChecked="{Binding DoAxisAngles}" Content="Stage angles" />
+                <CheckBox IsChecked="{Binding DoVolumeWarp}" Content="Volume warp, grid:" />
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="28,0,0,0">
+                    <NumericUpDown Value="{Binding VolumeWarpWidth}" Minimum="1" Maximum="20" Increment="1" FormatString="0" ToolTip.Tip="Resolution in X dimension" />
+                    <TextBlock Text="×" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding VolumeWarpHeight}" Minimum="1" Maximum="20" Increment="1" FormatString="0" ToolTip.Tip="Resolution in Y dimension" />
+                    <TextBlock Text="×" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding VolumeWarpDepth}" Minimum="1" Maximum="10" Increment="1" FormatString="0" ToolTip.Tip="Resolution in Z dimension" />
+                    <TextBlock Text="×" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding VolumeWarpLength}" Minimum="2" Maximum="100" Increment="1" FormatString="0" ToolTip.Tip="Resolution in temporal dimension" />
+                </StackPanel>
+                <CheckBox IsChecked="{Binding DoTiltMovies}" Content="Tilt movies" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <TextBlock Classes="h" Text="CTF:" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Batch size (speed vs. memory):" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding BatchSize}" Minimum="1" Maximum="256" Increment="1" FormatString="0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Use species with at least" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding MinimumCTFRefinementResolution}" Minimum="1" Maximum="15" Increment="0.1" FormatString="0.0" />
+                    <TextBlock Text="Å resolution" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox IsChecked="{Binding DoDefocus}" Content="Defocus, " />
+                    <CheckBox IsChecked="{Binding DoDefocusGridSearch}" Content="grid search in 1st iteration" />
+                </StackPanel>
+                <CheckBox IsChecked="{Binding DoPhaseShift}" Content="Phase shift" />
+                <CheckBox IsChecked="{Binding DoCs}" Content="PixelSize (actually Cs)" />
+
+                <TextBlock Classes="sub" Text="Odd Zernike orders (fast):" />
+                <StackPanel Orientation="Horizontal" Spacing="20">
+                    <CheckBox IsChecked="{Binding DoZernike13}" Content="3 (beam tilt, trefoil)" />
+                    <CheckBox IsChecked="{Binding DoZernike5}" Content="5" />
+                </StackPanel>
+
+                <TextBlock Classes="sub" Text="Even Zernike orders (slow):" />
+                <StackPanel Orientation="Horizontal" Spacing="20">
+                    <CheckBox IsChecked="{Binding DoZernike2}" Content="2" />
+                    <CheckBox IsChecked="{Binding DoZernike4}" Content="4" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <Expander Header="Technical things" Margin="0,10,0,0" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="400,*">
+                <CheckBox Grid.Column="0" IsChecked="{Binding UseHostMemory}" Content="Use CPU memory for particles"
+                          ToolTip.Tip="Turn off to use GPU memory if you have a lot of it compared to CPU memory" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                            ToolTip.Tip="Threshold value of the B-factor-based weighting function to which a frame's or tilt's resolution will be trimmed">
+                    <TextBlock Text="B-factor weight cut-off:" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding BFactorWeightingThreshold}" Minimum="0.01" Maximum="0.99" Increment="0.01" FormatString="0.00" />
+                </StackPanel>
+            </Grid>
+        </Expander>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="24" Margin="0,20,0,0">
+            <Button Content="REFINE" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonRefine_OnClick" />
+            <Button Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
 </Window>
