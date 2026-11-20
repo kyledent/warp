@@ -34,16 +34,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _inputAverageSlices = 1;
     public int InputAverageSlices { get => _inputAverageSlices; set { _inputAverageSlices = value; OnPropChanged(); UpdateSlices(); } }
 
-    private double _displayIntensityMin = -3;
+    // Defaults as Cube/Options.cs (WPF)
+    private double _displayIntensityMin = -2;
     public double DisplayIntensityMin { get => _displayIntensityMin; set { _displayIntensityMin = value; OnPropChanged(); UpdateSlices(); } }
-    private double _displayIntensityMax = 3;
+    private double _displayIntensityMax = 2;
     public double DisplayIntensityMax { get => _displayIntensityMax; set { _displayIntensityMax = value; OnPropChanged(); UpdateSlices(); } }
 
-    private int _boxSize = 64;
+    private int _boxSize = 16;
     public int BoxSize { get => _boxSize; set { _boxSize = value; OnPropChanged(); } }
     private double _particleScoreMin = 0;
     public double ParticleScoreMin { get => _particleScoreMin; set { _particleScoreMin = value; OnPropChanged(); UpdateParticleOverlays(); } }
-    private double _particleScoreMax = 10;
+    private double _particleScoreMax = 1;
     public double ParticleScoreMax { get => _particleScoreMax; set { _particleScoreMax = value; OnPropChanged(); UpdateParticleOverlays(); } }
 
     private List<float3> Particles = new();
