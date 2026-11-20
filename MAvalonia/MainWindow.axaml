@@ -22,7 +22,7 @@
             <!-- Header -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="16,8" Spacing="16">
                 <TextBlock Name="TextPopulationName" Text="" FontSize="24" FontWeight="Light" VerticalAlignment="Center" />
-                <Button Content="MANAGE DATA SOURCES" FontWeight="Medium" Foreground="CornflowerBlue"
+                <Button Name="ButtonPopulationEditSources" Content="Manage data sources" FontWeight="Medium" Foreground="CornflowerBlue"
                         Background="Transparent" BorderThickness="0"
                         Click="ButtonPopulationEditSources_OnClick" />
                 <TextBlock Name="TextSourceStats" Text="" Foreground="Gray" VerticalAlignment="Center" />

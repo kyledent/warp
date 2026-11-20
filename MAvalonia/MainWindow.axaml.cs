@@ -35,24 +35,24 @@ public partial class MainWindow : Window
 
     private async void ButtonPopulationCreateNew_OnClick(object? sender, RoutedEventArgs e)
     {
-        var folder = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Select folder for new population",
-            AllowMultiple = false
-        });
-        if (folder.Count == 0) return;
+        // As WPF M: a name and a folder, then <folder>/<name>.population
+        var dialog = new Dialogs.DialogCreatePopulation();
+        string? folder = await dialog.ShowDialog<string?>(this);
+        if (string.IsNullOrEmpty(folder))
+            return;
 
-        string populationPath = Path.Combine(folder[0].Path.LocalPath, "population.xml");
+        string name = string.IsNullOrWhiteSpace(dialog.PopulationName) ? "New population" : dialog.PopulationName!;
+        string populationPath = Path.Combine(folder, Helper.RemoveInvalidChars(name) + ".population");
 
         try
         {
-            ActivePopulation = new Population(populationPath);
-            ActivePopulation.Save();
-            ActivatePopulation();
+            var population = new Population(populationPath) { Name = name };
+            population.Save();
+            SetActivePopulation(population);
         }
         catch (Exception ex)
         {
-            Title = $"Error creating population: {ex.Message}";
+            await Dialogs.MessageWindow.ShowAsync(this, "Oopsie", $"Could not create the population: {ex.Message}");
         }
     }
 
@@ -62,24 +62,31 @@ public partial class MainWindow : Window
         {
             Title = "Load Population",
             AllowMultiple = false,
-            FileTypeFilter = new[] { new FilePickerFileType("Population") { Patterns = new[] { "*.xml" } } }
+            FileTypeFilter = new[] { new FilePickerFileType("Population Files") { Patterns = new[] { "*.population" } } }
         });
         if (files.Count == 0) return;
 
         try
         {
-            ActivePopulation = new Population(files[0].Path.LocalPath);
-            ActivatePopulation();
+            SetActivePopulation(new Population(files[0].Path.LocalPath));
         }
         catch (Exception ex)
         {
-            Title = $"Error loading population: {ex.Message}";
+            await Dialogs.MessageWindow.ShowAsync(this, "Oopsie", $"Could not load the population: {ex.Message}");
         }
     }
 
-    private void ActivatePopulation()
+    private void SetActivePopulation(Population population)
     {
-        if (ActivePopulation == null) return;
+        if (ActivePopulation != null)
+        {
+            ActivePopulation.Sources.CollectionChanged -= PopulationSources_CollectionChanged;
+            ActivePopulation.Species.CollectionChanged -= PopulationSpecies_CollectionChanged;
+        }
+
+        ActivePopulation = population;
+        ActivePopulation.Sources.CollectionChanged += PopulationSources_CollectionChanged;
+        ActivePopulation.Species.CollectionChanged += PopulationSpecies_CollectionChanged;
 
         PanelLanding.IsVisible = false;
         PanelMain.IsVisible = true;
@@ -89,6 +96,12 @@ public partial class MainWindow : Window
         UpdateSpeciesDisplay();
     }
 
+    private void PopulationSources_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        Dispatcher.UIThread.Post(UpdateSourceStats);
+
+    private void PopulationSpecies_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        Dispatcher.UIThread.Post(UpdateSpeciesDisplay);
+
     #endregion
 
     #region Data Sources
@@ -97,22 +110,27 @@ public partial class MainWindow : Window
     {
         if (ActivePopulation == null) return;
 
-        // In production: open DialogDataSources with ActivePopulation.Sources
-        // For now: show source count
-        TextSourceStats.Text = $"{ActivePopulation.Sources.Count} data source(s)";
+        var dialog = new Dialogs.DialogDataSources(ActivePopulation) { MaxHeight = Math.Max(400, Bounds.Height - 200) };
+        await dialog.ShowDialog(this);
+        UpdateSourceStats();
     }
 
     private void UpdateSourceStats()
     {
         if (ActivePopulation == null) return;
 
+        // As WPF M's PopulationUpdateSourceStats
         int nSources = ActivePopulation.Sources.Count;
-        int nSeries = 0, nMicrographs = 0;
+        int n2D = 0, nTilt = 0;
+        foreach (var source in ActivePopulation.Sources)
+            foreach (var file in source.Files)
+                if (file.Value.LastIndexOf(".tomostar") > -1)
+                    nTilt++;
+                else
+                    n2D++;
 
-        // Source stats would be computed from actual Source.Files in production
-        // For now: show source count only
-
-        TextSourceStats.Text = $"{nSources} data source(s)";
+        ButtonPopulationEditSources.Content = nSources > 0 ? $"{nSources} data source{(nSources != 1 ? "s" : "")}" : "Manage data sources";
+        TextSourceStats.Text = $" ({nTilt} tilt series, {n2D} micrograph{(n2D != 1 ? "s" : "")})";
     }
 
     #endregion
