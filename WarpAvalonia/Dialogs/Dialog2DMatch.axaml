@@ -18,13 +18,13 @@
                                MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="A" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Template diameter fraction: " FontSize="16" VerticalAlignment="Center" />
+                <TextBlock Text="Use % of template: " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.TomoMatchTemplateFraction, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0" MaxValue="1" StepSize="0.01" DecimalPlaces="2" />
+                               MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" Suffix="%" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Peak count: " FontSize="16" VerticalAlignment="Center" />
-                <c:ValueSlider Value="{Binding Tasks.TomoMatchPeakCount}" MinValue="1" MaxValue="100000" StepSize="100" DecimalPlaces="0" />
+                <TextBlock Text="Store best results: " FontSize="16" VerticalAlignment="Center" />
+                <c:ValueSlider Value="{Binding Tasks.TomoMatchNResults, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="100000000" StepSize="1" DecimalPlaces="0" />
             </StackPanel>
             <CheckBox Name="CheckFilter" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="16" />
             <CheckBox Name="CheckManual" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="16" />

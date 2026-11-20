@@ -166,7 +166,6 @@
                             <TextBlock Text="-" VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding CTF.RangeMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
                         </StackPanel>
-                        <CheckBox Grid.Row="0" Grid.Column="2" IsChecked="{Binding CTF.UseMovieSum}" Content="Use Movie Sum" FontSize="13" />
                         <!-- Row 1 -->
                         <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
                             <TextBlock Text="Voltage: " VerticalAlignment="Center" />
@@ -210,10 +209,10 @@
                         <!-- Grid miniatures -->
                         <c:GridMiniature Grid.Row="0" Grid.Column="0" Name="GridCTF"
                                          PointsX="{Binding Grids.CTFX}" PointsY="{Binding Grids.CTFY}" PointsZ="1"
-                                         Margin="10,0" VerticalAlignment="Center" Foreground="White" />
+                                         Margin="10,0" VerticalAlignment="Center" />
                         <c:GridMiniature Grid.Row="0" Grid.Column="1" Name="GridMovement"
                                          PointsX="{Binding Grids.MovementX}" PointsY="{Binding Grids.MovementY}" PointsZ="{Binding Grids.MovementZ}"
-                                         Margin="10,0" VerticalAlignment="Center" Foreground="White" />
+                                         Margin="10,0" VerticalAlignment="Center" />
                         <!-- Grid params: CTF -->
                         <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="Defocus: " VerticalAlignment="Center" />
@@ -222,7 +221,7 @@
                             <c:ValueSlider Value="{Binding Grids.CTFY}" MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" />
                         </StackPanel>
                         <!-- Grid params: Movement -->
-                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="Motion: " VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding Grids.MovementX}" MinValue="1" MaxValue="100" StepSize="1" DecimalPlaces="0" />
                             <TextBlock Text=" x " VerticalAlignment="Center" />
