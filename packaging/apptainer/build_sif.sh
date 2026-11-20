@@ -127,7 +127,9 @@ if [ "$VARIANT" = test ]; then
 
 %environment
     export WARP_HOME=/opt/warp
-    export PATH=/opt/warp/bin:/opt/warp_build/bin:/usr/local/bin:/usr/bin:/bin
+    # conda-forge's dotnet lives in lib/dotnet; activation would add it, a plain %environment must.
+    export DOTNET_ROOT=/opt/warp_build/lib/dotnet
+    export PATH=/opt/warp/bin:/opt/warp_build/bin:$DOTNET_ROOT:/usr/local/bin:/usr/bin:/bin
     export LD_LIBRARY_PATH=/opt/warp_runtime/lib:/opt/warp/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
     export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 DOTNET_CLI_TELEMETRY_OPTOUT=1 NUGET_PACKAGES=/opt/nuget
     export DOTNET_BUNDLE_EXTRACT_BASE_DIR="${TMPDIR:-/tmp}/warp-dotnet-bundle"
