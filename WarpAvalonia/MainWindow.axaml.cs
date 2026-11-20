@@ -83,21 +83,25 @@ public partial class MainWindow : Window
 
         Options = new OptionsWarp();
 
-        // Start from WarpLib's defaults, as WPF Warp does.
-
-        // Test hook: --load-settings <file> loads a .settings file before the window binds.
+        // Start from WarpLib's defaults, then the previous session's settings, as WPF Warp does.
+        // Test hook: --load-settings <file> replaces the previous session's settings.
         if (!string.IsNullOrEmpty(Program.LoadSettingsPath))
             Options.Load(Program.LoadSettingsPath);
+        else if (File.Exists(PreviousSettingsPath))
+            try { Options.Load(PreviousSettingsPath); }
+            catch (Exception ex) { Log($"Could not load {PreviousSettingsPath}: {ex.Message}"); }
 
         DataContext = Options;
 
-        // 2D vs tilt-series interface, as WPF's TomoAdjustInterface
-        Options.Import.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(OptionsImport.Extension))
-                Dispatcher.UIThread.Post(TomoAdjustInterface);
-        };
+        Options.PropertyChanged += Options_PropertyChanged;
         TomoAdjustInterface();
+        RefreshPathLabels();
+
+        // The test hooks must not write previous.settings anywhere, nor prompt.
+        bool testHooks = !string.IsNullOrEmpty(Program.LoadSettingsPath) || !string.IsNullOrEmpty(Program.SaveSettingsAndExitPath)
+                         || !string.IsNullOrEmpty(Program.OpenDialogName);
+        OptionsAutoSave = !testHooks;
+        OptionsLookForFolderOptions = !testHooks;
 
         // Test hook: --save-settings-and-exit <file> saves once the window has bound and laid out
         // (so any value a control coerced is what gets written), then closes.
@@ -111,14 +115,11 @@ public partial class MainWindow : Window
             }, DispatcherPriority.Background);
         }
 
-        // Track property changes in status bar
-        Options.PropertyChanged += (s, e) =>
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Log($"Property changed: {e.PropertyName} at {DateTime.Now:HH:mm:ss}");
-            });
-        };
+        InitGPUStats();
+
+        // Test hook: --open-dialog <name> [--dialog-file <path>] --dump-controls-and-exit <out.tsv>
+        if (!string.IsNullOrEmpty(Program.OpenDialogName))
+            Opened += (s, e) => Dispatcher.UIThread.Post(OpenDialogForTest, DispatcherPriority.Background);
 
         // Wire up FileDiscoverer
         Discoverer.FilesChanged += () => Dispatcher.UIThread.InvokeAsync(OnFilesChanged);
@@ -126,6 +127,9 @@ public partial class MainWindow : Window
             Log("New files detected, waiting for write to complete..."));
         Discoverer.IncubationEnded += () => Dispatcher.UIThread.InvokeAsync(() =>
             Log("Ready"));
+
+        if (!string.IsNullOrEmpty(Options.Import.DataFolder) && Directory.Exists(Options.Import.DataFolder))
+            StartDiscovery();
 
         if (Program.DemoMode)
         {
@@ -198,6 +202,340 @@ public partial class MainWindow : Window
         StatusBarControl.SetItems(ProcessingStatusBar.GenerateTestItems(120));
         StatusBarControl.SetActiveIndex(45);
     }
+
+    #region Options: previous.settings, path labels, GPU list (as WPF Warp)
+
+    const string DefaultOptionsName = "previous.settings";
+
+    // WPF Warp keeps previous.settings next to Warp.exe. A Linux install or image is read-only,
+    // so the per-user application-data folder is used instead.
+    static readonly string PreviousSettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Warp", DefaultOptionsName);
+
+    bool OptionsAutoSave = false;
+    bool OptionsLookForFolderOptions = false;
+
+    private async void Options_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => Options_PropertyChanged(sender, e));
+            return;
+        }
+
+        string name = e.PropertyName ?? "";
+
+        if (name is "Import.DataFolder" or "Import.ProcessingFolder" or "Import.DoRecursiveSearch")
+        {
+            RefreshPathLabels();
+
+            if (OptionsLookForFolderOptions && !string.IsNullOrEmpty(Options.Import.ProcessingOrDataFolder))
+            {
+                OptionsLookForFolderOptions = false;
+                try
+                {
+                    string folderOptions = Path.Combine(Options.Import.ProcessingOrDataFolder, DefaultOptionsName);
+                    if (File.Exists(folderOptions) &&
+                        await AskYesNo("Options File Found in Folder",
+                                       "A file with options from a previous Warp session was found in this folder. Load it?"))
+                    {
+                        if (string.IsNullOrEmpty(Options.Import.ProcessingFolder))
+                        {
+                            string selected = Options.Import.DataFolder;
+                            Options.Load(folderOptions);
+                            Options.Import.DataFolder = selected;
+                        }
+                        else
+                        {
+                            string selected = Options.Import.ProcessingFolder;
+                            Options.Load(folderOptions);
+                            Options.Import.ProcessingFolder = selected;
+                        }
+                        RefreshPathLabels();
+                        Log($"Settings loaded from {folderOptions}");
+                    }
+                }
+                catch (Exception ex) { Log($"Could not load folder settings: {ex.Message}"); }
+                finally { OptionsLookForFolderOptions = true; }
+            }
+
+            if (!string.IsNullOrEmpty(Options.Import.DataFolder))
+                StartDiscovery();
+            TomoAdjustInterface();
+        }
+        else if (name == "Import.Extension")
+        {
+            if (!string.IsNullOrEmpty(Options.Import.DataFolder))
+                StartDiscovery();
+            TomoAdjustInterface();
+        }
+        else if (name == "Import.GainPath")
+        {
+            if (!string.IsNullOrEmpty(Options.Import.GainPath))
+            {
+                if (!File.Exists(Options.Import.GainPath))
+                {
+                    Options.Import.GainPath = "";
+                    return;
+                }
+                Options.Import.GainReferenceHash = MathHelper.GetSHA1(Options.Import.GainPath, 1 << 20);
+            }
+            RefreshPathLabels();
+        }
+        else if (name == "Import.DefectsPath")
+        {
+            if (!string.IsNullOrEmpty(Options.Import.DefectsPath))
+            {
+                if (!File.Exists(Options.Import.DefectsPath))
+                {
+                    Options.Import.DefectsPath = "";
+                    return;
+                }
+                Options.Import.DefectMapHash = MathHelper.GetSHA1(Options.Import.DefectsPath, 1 << 20);
+            }
+            RefreshPathLabels();
+        }
+        else if (name == "Picking.ModelPath")
+        {
+            RefreshPathLabels();
+        }
+
+        SaveDefaultSettings();
+    }
+
+    private void SaveDefaultSettings()
+    {
+        if (!OptionsAutoSave)
+            return;
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(PreviousSettingsPath)!);
+            Options.Save(PreviousSettingsPath);
+        }
+        catch { }
+
+        if (!string.IsNullOrEmpty(Options.Import.ProcessingOrDataFolder))
+            try { Options.Save(Path.Combine(Options.Import.ProcessingOrDataFolder, DefaultOptionsName)); }
+            catch { }
+    }
+
+    private static TextBlock PathLabel(string path, string empty) => new TextBlock
+    {
+        Text = string.IsNullOrEmpty(path) ? empty : path,
+        TextTrimming = TextTrimming.PathSegmentEllipsis,
+        MaxWidth = 330
+    };
+
+    private void RefreshPathLabels()
+    {
+        void Set(Button button, string path, string empty)
+        {
+            button.Content = PathLabel(path, empty);
+            ToolTip.SetTip(button, string.IsNullOrEmpty(path) ? null : path);
+        }
+
+        Set(ButtonInputPath, Options.Import.DataFolder, "Select folder...");
+        Set(ButtonInputProcessingPath, Options.Import.ProcessingFolder, "Select folder...");
+        Set(ButtonGainPath, Options.Import.GainPath, "Select reference...");
+        Set(ButtonDefectsPath, Options.Import.DefectsPath, "Select defect map...");
+        Set(ButtonPickingModelName, Options.Picking.ModelPath, "Select BoxNet model...");
+    }
+
+    private async Task<bool> AskYesNo(string title, string message)
+    {
+        bool result = false;
+        var dialog = new Window
+        {
+            Title = title,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        var yes = new Button { Content = "Yes", MinWidth = 80, IsDefault = true };
+        var no = new Button { Content = "No", MinWidth = 80, IsCancel = true };
+        yes.Click += (s, e) => { result = true; dialog.Close(); };
+        no.Click += (s, e) => dialog.Close();
+        dialog.Content = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(20),
+            Spacing = 16,
+            Children =
+            {
+                new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 },
+                new StackPanel
+                {
+                    Orientation = Avalonia.Layout.Orientation.Horizontal,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                    Spacing = 8,
+                    Children = { yes, no }
+                }
+            }
+        };
+        await dialog.ShowDialog(this);
+        return result;
+    }
+
+    private CheckBox[] CheckboxesGPUStats = Array.Empty<CheckBox>();
+    private DispatcherTimer? TimerGPUStats;
+
+    /// <summary>
+    /// One checkbox per GPU with its free memory, refreshed every 200 ms, as WPF Warp's title bar.
+    /// Unticked GPUs are not used for processing.
+    /// </summary>
+    private void InitGPUStats()
+    {
+        int count;
+        try { count = GPU.GetDeviceCount(); }
+        catch { return; }   // no NativeAcceleration or no driver: processing reports it when started
+
+        CheckboxesGPUStats = Enumerable.Range(0, count)
+            .Select(i => new CheckBox { IsChecked = true, Margin = new Avalonia.Thickness(10, 0), Focusable = false })
+            .ToArray();
+        foreach (var box in CheckboxesGPUStats)
+            PanelGPUStats.Children.Add(box);
+
+        void Update()
+        {
+            for (int i = 0; i < CheckboxesGPUStats.Length; i++)
+            {
+                try
+                {
+                    long free = GPU.GetFreeMemory(i);
+                    IntPtr namePtr = GPU.GetDeviceName(i);
+                    string gpuName = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(namePtr) ?? "";
+                    CPU.HostFree(namePtr);
+                    CheckboxesGPUStats[i].Content = $"#{i}, {gpuName}: {(free / 1024f):F1} GB";
+                }
+                catch { }
+            }
+        }
+
+        Update();
+        TimerGPUStats = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (s, e) => Update());
+        TimerGPUStats.Start();
+    }
+
+    private List<int> GetDeviceList()
+    {
+        var devices = new List<int>();
+        for (int i = 0; i < CheckboxesGPUStats.Length; i++)
+            if (CheckboxesGPUStats[i].IsChecked == true)
+                devices.Add(i);
+        return devices;
+    }
+
+    #endregion
+
+    #region Test hook: open a task dialog and dump its controls
+
+    private Window? CreateDialog(string name, string file)
+    {
+        var movies = CurrentItems.Where(m => m is not TiltSeries).ToArray();
+        var series = CurrentItems.OfType<TiltSeries>().ToArray();
+        return name switch
+        {
+            "BoxNetExport" => new Dialogs.BoxNetExport(movies, Options),
+            "BoxNetTrain" => new Dialogs.BoxNetTrain(movies, Options),
+            "Dialog2DDefocusUpdate" => new Dialogs.Dialog2DDefocusUpdate(movies, file, Options),
+            "Dialog2DList" => new Dialogs.Dialog2DList(movies, Options),
+            "Dialog2DMatch" => new Dialogs.Dialog2DMatch(movies, file, Options),
+            "Dialog2DParticleExport" => new Dialogs.Dialog2DParticleExport(movies, file, Options),
+            "Dialog2DParticleImport" => new Dialogs.Dialog2DParticleImport(movies, file, Options),
+            "DialogTomoImportImod" => new Dialogs.DialogTomoImportImod(Options),
+            "DialogTomoList" => new Dialogs.DialogTomoList(series, Options),
+            "DialogTomoMatch" => new Dialogs.DialogTomoMatch(series, file, Options),
+            "DialogTomoParticleExport" => new Dialogs.DialogTomoParticleExport(series, file, Options),
+            "DialogTomoReconstruction" => new Dialogs.DialogTomoReconstruction(series, Options, GetDeviceList()),
+            _ => null
+        };
+    }
+
+    private void OpenDialogForTest()
+    {
+        string name = Program.OpenDialogName!;
+        string file = Program.DialogFilePath ?? "";
+        Window? dialog;
+        try { dialog = CreateDialog(name, file); }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"--open-dialog {name}: {ex.GetType().Name}: {ex.Message}");
+            Environment.ExitCode = 2;
+            Close();
+            return;
+        }
+        if (dialog == null)
+        {
+            Console.Error.WriteLine($"--open-dialog: unknown dialog '{name}'");
+            Environment.ExitCode = 2;
+            Close();
+            return;
+        }
+
+        if (string.IsNullOrEmpty(Program.DumpControlsAndExitPath))
+        {
+            dialog.ShowDialog(this);
+            return;
+        }
+
+        dialog.Opened += (s, e) => Dispatcher.UIThread.Post(() =>
+        {
+            File.WriteAllText(Program.DumpControlsAndExitPath!, DumpControls(dialog));
+            Console.WriteLine($"Controls of {name} written to {Program.DumpControlsAndExitPath}");
+            dialog.Close();
+            Close();
+        }, DispatcherPriority.Background);
+        dialog.Show(this);
+    }
+
+    /// <summary>
+    /// One row per visible text, value slider, check box, combo box or text box, in layout order:
+    /// what a user sees, without clicking.
+    /// </summary>
+    private static string DumpControls(Control root)
+    {
+        static string Clean(object? o) => (o?.ToString() ?? "").Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
+        static string ContentText(object? content) => content switch
+        {
+            TextBlock t => t.Text ?? "",
+            null => "",
+            _ => content.ToString() ?? ""
+        };
+
+        var sb = new StringBuilder();
+        sb.AppendLine("type\tname\ttext\tvalue\tmin\tmax\tstep\tdecimals\tsuffix\tenabled");
+        foreach (var c in Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(root).OfType<Control>())
+        {
+            if (!c.IsEffectivelyVisible)
+                continue;
+            string enabled = c.IsEffectivelyEnabled ? "1" : "0";
+            switch (c)
+            {
+                case ValueSlider v:
+                    sb.AppendLine($"ValueSlider\t{Clean(v.Name)}\t\t{v.Value.ToString(CultureInfo.InvariantCulture)}\t{v.MinValue.ToString(CultureInfo.InvariantCulture)}\t{v.MaxValue.ToString(CultureInfo.InvariantCulture)}\t{v.StepSize.ToString(CultureInfo.InvariantCulture)}\t{v.DecimalPlaces}\t{Clean(v.Suffix)}\t{enabled}");
+                    break;
+                case CheckBox cb:
+                    sb.AppendLine($"CheckBox\t{Clean(cb.Name)}\t{Clean(ContentText(cb.Content))}\t{Clean(cb.IsChecked)}\t\t\t\t\t\t{enabled}");
+                    break;
+                case ComboBox combo:
+                    sb.AppendLine($"ComboBox\t{Clean(combo.Name)}\t\t{Clean(combo.SelectedItem is ComboBoxItem ci ? ci.Content : combo.SelectedItem)}\t\t\t\t\t\t{enabled}");
+                    break;
+                case TextBox tb:
+                    sb.AppendLine($"TextBox\t{Clean(tb.Name)}\t\t{Clean(tb.Text)}\t\t\t\t\t\t{enabled}");
+                    break;
+                case Button b:
+                    sb.AppendLine($"Button\t{Clean(b.Name)}\t{Clean(ContentText(b.Content))}\t\t\t\t\t\t\t{enabled}");
+                    break;
+                case TextBlock t when t.Parent is not ValueSlider && t.Parent is not Button && t.Parent is not CheckBox
+                                     && !string.IsNullOrWhiteSpace(t.Text):
+                    sb.AppendLine($"Text\t{Clean(t.Name)}\t{Clean(t.Text)}\t\t\t\t\t\t\t{enabled}");
+                    break;
+            }
+        }
+        return sb.ToString();
+    }
+
+    #endregion
 
     /// <summary>
     /// Shows the 2D or the tilt-series controls, following WPF Warp's TomoAdjustInterface:
@@ -431,11 +769,7 @@ public partial class MainWindow : Window
         if (folder.Count > 0)
         {
             Options.Import.DataFolder = folder[0].Path.LocalPath;
-            ButtonInputPath.Content = folder[0].Name;
             Log($"Data folder: {folder[0].Path.LocalPath}");
-
-            // Start file discovery
-            StartDiscovery();
         }
     }
 
@@ -450,7 +784,6 @@ public partial class MainWindow : Window
         if (folder.Count > 0)
         {
             Options.Import.ProcessingFolder = folder[0].Path.LocalPath;
-            ButtonInputProcessingPath.Content = folder[0].Name;
             Log($"Processing folder: {folder[0].Path.LocalPath}");
         }
     }
@@ -458,7 +791,6 @@ public partial class MainWindow : Window
     private void ButtonInputRemoveProcessingPath_OnClick(object? sender, RoutedEventArgs e)
     {
         Options.Import.ProcessingFolder = "";
-        ButtonInputProcessingPath.Content = "Select folder...";
     }
 
     #endregion
@@ -477,7 +809,6 @@ public partial class MainWindow : Window
         if (files.Count > 0)
         {
             Options.Import.GainPath = files[0].Path.LocalPath;
-            ButtonGainPath.Content = Path.GetFileName(files[0].Path.LocalPath);
         }
     }
 
@@ -492,7 +823,6 @@ public partial class MainWindow : Window
         if (files.Count > 0)
         {
             Options.Import.DefectsPath = files[0].Path.LocalPath;
-            ButtonDefectsPath.Content = Path.GetFileName(files[0].Path.LocalPath);
         }
     }
 
@@ -512,7 +842,6 @@ public partial class MainWindow : Window
         if (files.Count > 0)
         {
             Options.Picking.ModelPath = files[0].Path.LocalPath;
-            ButtonPickingModelName.Content = Path.GetFileName(files[0].Path.LocalPath);
         }
     }
 
@@ -611,7 +940,8 @@ public partial class MainWindow : Window
     private async void ButtonTasksReconstructTomograms_OnClick(object? sender, RoutedEventArgs e)
     {
         var series = CurrentItems.OfType<TiltSeries>().ToArray();
-        var devices = Enumerable.Range(0, Math.Max(1, GPU.GetDeviceCount())).ToList();
+        var devices = GetDeviceList();
+        if (devices.Count == 0) { Log("No GPU selected."); return; }
         var dialog = new Dialogs.DialogTomoReconstruction(series, Options, devices);
         await dialog.ShowDialog(this);
         UpdateStatsAll();
@@ -700,6 +1030,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        var usedDevices = GetDeviceList();
+        if (usedDevices.Count == 0)
+        {
+            Log("No GPU selected: tick at least one GPU in the list above the tabs.");
+            return;
+        }
+        nDevices = usedDevices.Count;
+
         IsProcessing = true;
         ButtonStartProcessing.Content = "STOP PROCESSING";
         ProcessingCts = new CancellationTokenSource();
@@ -771,7 +1109,7 @@ public partial class MainWindow : Window
                     }
 
                     return false;
-                }, 1, Enumerable.Range(0, nDevices).ToList());
+                }, 1, usedDevices);
             }
         }, ct);
     }
