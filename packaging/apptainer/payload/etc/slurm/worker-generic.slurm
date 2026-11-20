@@ -1,6 +1,6 @@
 #!/bin/bash
-# WarpTools worker job, generic: every resource is a --cluster_var. A site replaces this with
-# per-partition templates via build_sif.sh --site. Example:
+# WarpTools worker job for the 'generic' profile: every resource set with --cluster_var
+# A site replaces this with per-partition templates via build_sif.sh --site. Example:
 #   WarpTools <command> ... --cluster_config /opt/warp/etc/slurm-rest.json \
 #       --cluster_script /opt/warp/etc/slurm/worker-generic.slurm --pool_size 4 \
 #       --cluster_var partition=gpu --cluster_var constraint=a100 --cluster_var time=04:00:00 \

@@ -43,8 +43,15 @@ preflight() {
     echo "  built for:           CUDA $(sed -n 's/^cuda=//p' "$W/PROVENANCE"), architectures $(sed -n 's/^cuda_archs=//p' "$W/PROVENANCE")"
     echo "== GPU"
     if command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv,noheader 2>&1 | sed 's/^/  /'
-        nvidia-smi 2>/dev/null | grep -o 'CUDA Version: [0-9.]*' | sed 's/^/  driver /'
+        local gpu
+        if gpu=$(nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv,noheader 2>&1); then
+            printf '%s\n' "$gpu" | sed 's/^/  /'
+            nvidia-smi 2>/dev/null | grep -o 'CUDA Version: [0-9.]*' | sed 's/^/  driver /'
+        else
+            echo "  WARN no GPU visible: $(printf '%s' "$gpu" | head -1)"
+            echo "       nvidia-smi is present but cannot reach a GPU; GPU commands will fail"
+            echo "       (if this is WSL2: /dev/dxg and /usr/lib/wsl must be bound; the warptools launcher does this)"
+        fi
     else
         echo "  no nvidia-smi in the container (not started with --nv, or no GPU): GPU commands will fail"
     fi
@@ -70,8 +77,15 @@ check_gpu() {
     archs=$(sed -n 's/^cuda_archs=//p' "$W/PROVENANCE")
     [ -n "$archs" ] || { echo "check-gpu: image records no cuda_archs; not checking"; return 0; }
     command -v nvidia-smi >/dev/null 2>&1 || { echo "check-gpu: no GPU visible (started without --nv?)" >&2; return 3; }
-    caps=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | tr -d '.' | sort -u)
-    [ -n "$caps" ] || { echo "check-gpu: nvidia-smi reports no GPU" >&2; return 3; }
+    local out rc
+    out=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>&1); rc=$?
+    # A failing nvidia-smi prints its error on stdout; never read that as compute capabilities.
+    if [ $rc -ne 0 ] || ! printf '%s\n' "$out" | grep -qE '^[[:space:]]*[0-9]+\.[0-9]+[[:space:]]*$'; then
+        echo "check-gpu: no GPU visible (nvidia-smi: $(printf '%s' "$out" | head -1))" >&2
+        echo "check-gpu: if this is WSL2, the container also needs /dev/dxg and /usr/lib/wsl bound; the warptools launcher does this" >&2
+        return 3
+    fi
+    caps=$(printf '%s\n' "$out" | grep -E '^[[:space:]]*[0-9]+\.[0-9]+[[:space:]]*$' | tr -d '. ' | sort -u)
     for c in $caps; do
         case ";$archs;" in *";$c;"*) ;; *) bad=1; echo "check-gpu: this GPU is sm_$c; the image was built for $archs ($(sed -n 's/^cuda=//p' "$W/PROVENANCE") build)" >&2 ;; esac
     done
@@ -129,7 +143,7 @@ $(for f in "$W"/etc/slurm/worker-*.slurm; do printf '  %-10s %s\n' "$(basename "
 
 To change partition, time, CPUs or memory, copy a template, edit its #SBATCH lines and pass
 your copy to --cluster_script. Submission goes over slurmrestd with your own token; check it
-with:  warp slurm check
+with:  warptools slurm check   (inside the image: warp slurm check)
 The queue directory (default <output>/tasks) must be on storage the compute nodes see.
 EOF
 }

@@ -136,7 +136,26 @@ fi
 if [ -e /dev/nvidiactl ] || command -v nvidia-smi >/dev/null 2>&1; then
     FLAGS+=(--nv)
     [ -n "${CUDA_VISIBLE_DEVICES:-}" ] && FLAGS+=(--env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}")
+    # WSL2: the GPU is /dev/dxg, and the driver is a libcuda shim in /usr/lib/wsl/lib that needs
+    # libdxcore.so and the rest of /usr/lib/wsl. --containall's minimal /dev has no /dev/dxg, and
+    # --nv's library list misses libdxcore.so. These bypass add_bind, which refuses /dev and /usr.
+    if [ -e /dev/dxg ] && [ -d /usr/lib/wsl/lib ]; then
+        FLAGS+=(-B /dev/dxg -B /usr/lib/wsl:/usr/lib/wsl:ro)
+        # /usr/lib/wsl/lib must be on the library path AFTER the image's own directories: --env
+        # replaces the value the image's environment script builds, so rebuild it here. Read the
+        # image's directories from its metadata rather than hard-coding them.
+        img_ld="$(apptainer inspect --environment "${SIF}" 2>/dev/null \
+            | sed -n 's/^[[:space:]]*export LD_LIBRARY_PATH=\([^$]*\).*/\1/p' | head -1)"
+        img_ld="${img_ld%:}"
+        [ -n "${img_ld}" ] || img_ld="/opt/warp_runtime/lib:/opt/warp/bin"
+        FLAGS+=(--env "LD_LIBRARY_PATH=${img_ld}:/usr/lib/wsl/lib")
+    fi
 fi
+
+# .NET globalization: the image carries no ICU, and every Warp program is meant to run in invariant
+# mode (culture-independent number parsing in .settings files). Images built before the Avalonia
+# GUIs set InvariantGlobalization abort at startup without this; for the others it changes nothing.
+FLAGS+=(--env "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1")
 
 # X11 for the GUIs.
 if [ -n "${DISPLAY:-}" ]; then
