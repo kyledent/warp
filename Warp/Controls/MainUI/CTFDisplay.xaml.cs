@@ -479,7 +479,6 @@ namespace Warp.Controls
             Plot1DAxisY.MaxValue = Math.Max(MaxExperimental, MaxSimulated) * 1.25f;
 
             Plot1DAxisY.LabelFormatter = val => val.ToString("F3", CultureInfo.InvariantCulture);
-            Plot1DAxisYQuality.LabelFormatter = val => val.ToString("F3", CultureInfo.InvariantCulture);
             Plot1DAxisX.LabelFormatter = val => (Movie.OptionsCTF.Window / val * (double)Movie.OptionsCTF.BinnedPixelSizeMean).ToString("F2") + " Å";
         }
 

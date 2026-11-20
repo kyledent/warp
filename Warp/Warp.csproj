@@ -5,6 +5,9 @@
     <PublishUrl>publish\</PublishUrl>
     <MapFileExtensions>true</MapFileExtensions>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- WPF data binding resolves the "en-us" XmlLanguage to a specific culture; invariant mode refuses unless
+         cultures may be created. Without this the app crashes at startup. -->
+    <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <Version>2.0.0</Version>
     <AssemblyVersion>2.0.0</AssemblyVersion>
     <UseApplicationTrust>false</UseApplicationTrust>

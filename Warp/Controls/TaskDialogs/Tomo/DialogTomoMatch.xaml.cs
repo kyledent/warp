@@ -160,15 +160,15 @@ namespace Warp.Controls.TaskDialogs.Tomo
 
                     ProcessingOptionsTomoFullMatch SeriesOptions = Options.GetProcessingTomoFullMatch();
                     SeriesOptions.TemplateName = Helper.PathToName(PathTemplate);
-                    SeriesOptions.NormalizeScores = true;
-
-                    item.MatchFull(SeriesOptions, Template[gpuID], (size, value, name) =>
+                    // Same entry point as the WarpTools worker (ts_template_match). Its progress is a single
+                    // fraction, shown on a 10x10 grid in percent.
+                    item.MatchLargeVolume(SeriesOptions, Template[gpuID], (fraction, message) =>
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            SetGridSize(gpuID, size);
-                            SetGridProgress(gpuID, (int)(value + 0.5f));
-                            SetGridName(gpuID, name);
+                            SetGridSize(gpuID, new int3(10, 10, 1));
+                            SetGridProgress(gpuID, (int)(fraction * 100 + 0.5f));
+                            SetGridName(gpuID, message);
                         });
 
                         return IsCanceled;
