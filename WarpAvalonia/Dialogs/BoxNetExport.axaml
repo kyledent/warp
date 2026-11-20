@@ -9,7 +9,7 @@
         <TextBlock Text="Export BoxNet training examples" FontSize="24" Margin="0,10,0,10" />
         <StackPanel Orientation="Horizontal">
             <TextBlock Text="Particle diameter: " VerticalAlignment="Center" />
-            <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="A" />
+            <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="Å" />
         </StackPanel>
         <CheckBox Content="Negative stain" IsChecked="{Binding Picking.DataStyle}" />
         <ProgressBar Name="ProgressExport" IsVisible="False" Minimum="0" Maximum="100" />

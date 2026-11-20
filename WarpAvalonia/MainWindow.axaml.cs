@@ -83,32 +83,33 @@ public partial class MainWindow : Window
 
         Options = new OptionsWarp();
 
-        // Set defaults matching typical cryo-ET data
-        Options.Import.PixelSize = 1.5m;
-        Options.Import.Extension = "*.eer";
-        Options.CTF.Voltage = 300;
-        Options.CTF.Cs = 2.7m;
-        Options.CTF.Amplitude = 0.07m;
-        Options.CTF.Window = 512;
-        Options.CTF.RangeMin = 30m;
-        Options.CTF.RangeMax = 4m;
-        Options.CTF.ZMin = 0.5m;
-        Options.CTF.ZMax = 5m;
-        Options.Movement.RangeMin = 500m;
-        Options.Movement.RangeMax = 10m;
-        Options.Movement.Bfactor = -500m;
-        Options.Grids.CTFX = 5;
-        Options.Grids.CTFY = 5;
-        Options.Grids.MovementX = 3;
-        Options.Grids.MovementY = 3;
-        Options.Grids.MovementZ = 10;
-        Options.Tomo.DimensionsX = 4096;
-        Options.Tomo.DimensionsY = 4096;
-        Options.Tomo.DimensionsZ = 1000;
-        Options.Picking.Diameter = 200;
-        Options.Picking.MinimumScore = 0.5m;
+        // Start from WarpLib's defaults, as WPF Warp does.
+
+        // Test hook: --load-settings <file> loads a .settings file before the window binds.
+        if (!string.IsNullOrEmpty(Program.LoadSettingsPath))
+            Options.Load(Program.LoadSettingsPath);
 
         DataContext = Options;
+
+        // 2D vs tilt-series interface, as WPF's TomoAdjustInterface
+        Options.Import.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(OptionsImport.Extension))
+                Dispatcher.UIThread.Post(TomoAdjustInterface);
+        };
+        TomoAdjustInterface();
+
+        // Test hook: --save-settings-and-exit <file> saves once the window has bound and laid out
+        // (so any value a control coerced is what gets written), then closes.
+        if (!string.IsNullOrEmpty(Program.SaveSettingsAndExitPath))
+        {
+            Opened += (s, e) => Dispatcher.UIThread.Post(() =>
+            {
+                Options.Save(Program.SaveSettingsAndExitPath);
+                Console.WriteLine($"Settings saved to {Program.SaveSettingsAndExitPath}");
+                Close();
+            }, DispatcherPriority.Background);
+        }
 
         // Track property changes in status bar
         Options.PropertyChanged += (s, e) =>
@@ -196,6 +197,32 @@ public partial class MainWindow : Window
         // Processing status bar
         StatusBarControl.SetItems(ProcessingStatusBar.GenerateTestItems(120));
         StatusBarControl.SetActiveIndex(45);
+    }
+
+    /// <summary>
+    /// Shows the 2D or the tilt-series controls, following WPF Warp's TomoAdjustInterface:
+    /// tilt series hide motion, models, picking, output and the 2D tasks; 2D data hides the
+    /// tomogram dimensions and the 3D tasks, and shows EER grouping only for EER data.
+    /// </summary>
+    private void TomoAdjustInterface()
+    {
+        bool isTomo = Options.Import.ExtensionTomoSTAR;
+
+        PanelTomoDims.IsVisible = isTomo;
+        PanelOverviewTasks3D.IsVisible = isTomo;
+
+        PanelSections2D.IsVisible = !isTomo;
+        PanelOverviewTasks2D.IsVisible = !isTomo;
+        PanelExposure2D.IsVisible = !isTomo;
+        PanelEERGrouping.IsVisible = !isTomo && Options.Import.ExtensionEER;
+
+        if (isTomo)
+        {
+            Options.ProcessMovement = false;
+            Options.Export.DoAverage = false;
+            Options.Export.DoDeconvolve = false;
+            Options.Export.DoStack = false;
+        }
     }
 
     #region File Discovery & Statistics
@@ -542,6 +569,36 @@ public partial class MainWindow : Window
 
         var movies = CurrentItems.Where(m => m is not TiltSeries).ToArray();
         var dialog = new Dialogs.Dialog2DMatch(movies, files[0].Path.LocalPath, Options);
+        await dialog.ShowDialog(this);
+    }
+
+    private async void ButtonTasksImportParticles_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Select a file with particle coordinates for either the entire data set or one movie",
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new FilePickerFileType("STAR") { Patterns = new[] { "*.star" } } }
+        });
+        if (files.Count == 0) return;
+
+        var movies = CurrentItems.Where(m => m is not TiltSeries).ToArray();
+        var dialog = new Dialogs.Dialog2DParticleImport(movies, files[0].Path.LocalPath, Options);
+        await dialog.ShowDialog(this);
+        UpdateStatsAll();
+    }
+
+    private async void ButtonTasksExportBoxNet_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var movies = CurrentItems.Where(m => m is not TiltSeries).ToArray();
+        var dialog = new Dialogs.BoxNetExport(movies, Options);
+        await dialog.ShowDialog(this);
+    }
+
+    private async void ButtonTasksExportTomograms_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var series = CurrentItems.OfType<TiltSeries>().ToArray();
+        var dialog = new Dialogs.DialogTomoList(series, Options);
         await dialog.ShowDialog(this);
     }
 

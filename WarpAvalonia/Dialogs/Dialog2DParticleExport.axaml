@@ -11,12 +11,12 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Coordinate pixel size: " VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.InputPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A/px" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="Å/px" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Export pixel size: " VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.Export2DPixel, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="A/px" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="Å/px" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Box size: " VerticalAlignment="Center" />

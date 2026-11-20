@@ -15,7 +15,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Template pixel size: " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.TomoMatchTemplatePixel, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="A" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="Å" />
             </StackPanel>
             <CheckBox Name="CheckFilter" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="16" />
             <CheckBox Name="CheckManual" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="16" />

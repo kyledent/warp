@@ -15,7 +15,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Template pixel size: " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.TomoMatchTemplatePixel, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="A" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.01" DecimalPlaces="2" Suffix="Å" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Use % of template: " FontSize="16" VerticalAlignment="Center" />

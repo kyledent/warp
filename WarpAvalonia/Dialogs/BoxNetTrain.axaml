@@ -14,7 +14,7 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Particle diameter: " VerticalAlignment="Center" Width="100" />
-                <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="A" />
+                <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="Å" />
             </StackPanel>
             <CheckBox Content="Use corpus examples" />
             <CheckBox Content="Train mask prediction" />

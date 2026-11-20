@@ -11,7 +11,7 @@
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <TextBlock Text="Coordinates use " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.InputPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.001" DecimalPlaces="3" Suffix="A/px" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.001" DecimalPlaces="3" Suffix="Å/px" />
             </StackPanel>
             <RadioButton Grid.Row="2" Name="RadioSkip" GroupName="Missing"
                          IsChecked="{Binding Tasks.AdjustDefocusSkipExcluded}"

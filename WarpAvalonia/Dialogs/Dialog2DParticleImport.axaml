@@ -11,12 +11,12 @@
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <TextBlock Text="Coordinates use " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.InputPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A/px" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="Å/px" />
             </StackPanel>
             <StackPanel Grid.Row="1" Orientation="Horizontal">
                 <TextBlock Text="Shifts use " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.InputShiftPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A/px" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="Å/px" />
             </StackPanel>
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16">
                 <CheckBox IsChecked="{Binding Tasks.InputFlipX}" Content="Flip X" FontSize="16" />

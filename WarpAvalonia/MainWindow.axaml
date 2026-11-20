@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:WarpAvalonia.Controls"
+        xmlns:sys="using:System"
         x:Class="WarpAvalonia.MainWindow"
         Title="Warp Avalonia — Cross-Platform Cryo-EM Processing"
         Width="1536" Height="1030"
@@ -43,23 +44,27 @@
                                     Foreground="CornflowerBlue" Padding="0"
                                     Click="ButtonInputPath_OnClick" />
                             <TextBlock Text=" — " VerticalAlignment="Center" />
-                            <ComboBox Name="ComboExtension" SelectedIndex="5" MinWidth="80"
-                                      Padding="4,2" VerticalAlignment="Center">
-                                <ComboBoxItem Content="*.mrc" />
-                                <ComboBoxItem Content="*.mrcs" />
-                                <ComboBoxItem Content="*.em" />
-                                <ComboBoxItem Content="*.tif" />
-                                <ComboBoxItem Content="*.tiff" />
-                                <ComboBoxItem Content="*.eer" />
-                                <ComboBoxItem Content="*.tomostar" />
-                                <ComboBoxItem Content="*.dat" />
+                            <ComboBox Name="ComboExtension" MinWidth="80"
+                                      Padding="4,2" VerticalAlignment="Center"
+                                      SelectedItem="{Binding Import.Extension}">
+                                <sys:String>*.mrc</sys:String>
+                                <sys:String>*.mrcs</sys:String>
+                                <sys:String>*.em</sys:String>
+                                <sys:String>*.tif</sys:String>
+                                <sys:String>*.tiff</sys:String>
+                                <sys:String>*.eer</sys:String>
+                                <sys:String>*.tomostar</sys:String>
+                                <sys:String>*.dat</sys:String>
                             </ComboBox>
                         </StackPanel>
 
                         <!-- Row 1: Recursive search -->
-                        <CheckBox Grid.Row="1" Grid.Column="1"
-                                  IsChecked="{Binding Import.DoRecursiveSearch}"
-                                  Content="Search recursively" FontSize="13" />
+                        <CheckBox Grid.Row="1" Grid.Column="1" MinHeight="0" Padding="4,0" VerticalAlignment="Center"
+                                  IsChecked="{Binding Import.DoRecursiveSearch}" FontSize="13"
+                                  ToolTip.Tip="Search recursively (only with alternative processing folder)">
+                            <TextBlock Text="Search recursively (only with alternative processing folder)"
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                        </CheckBox>
 
                         <!-- Row 2: Processing folder -->
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Process:" VerticalAlignment="Center" />
@@ -79,7 +84,7 @@
                         <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
                             <c:ValueSlider Value="{Binding Import.PixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
                                            MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" />
-                            <TextBlock Text=" A" VerticalAlignment="Center" />
+                            <TextBlock Text=" Å" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <!-- Row 4: Binning -->
@@ -87,6 +92,7 @@
                         <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
                             <c:ValueSlider Value="{Binding Import.BinTimes, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
                                            MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" Suffix="x" />
+                            <TextBlock Text="{Binding Import.BinnedPixelSize, StringFormat='({0:0.0000} Å/px)'}" VerticalAlignment="Center" Margin="4,0,0,0" />
                         </StackPanel>
                     </Grid>
 
@@ -95,7 +101,7 @@
                         <TextBlock Text="Exposure:" Width="64" VerticalAlignment="Center" />
                         <c:ValueSlider Value="{Binding Import.DosePerAngstromFrame, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
                                        MinValue="0" MaxValue="10000" StepSize="0.01" DecimalPlaces="2"
-                                       Suffix="e/A2/frame" />
+                                       Suffix="e/Å²/frame" />
                     </StackPanel>
 
                     <!-- EER frame grouping -->
@@ -154,7 +160,7 @@
                         <TextBlock Text="CTF" FontSize="18" Margin="4,12,0,0" />
                     </StackPanel>
                     <Grid IsEnabled="{Binding ProcessCTF}" Margin="6,0"
-                          ColumnDefinitions="*,*,*" RowDefinitions="28,28,28">
+                          ColumnDefinitions="Auto,Auto,*" RowDefinitions="28,28,28">
                         <!-- Row 0 -->
                         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
                             <TextBlock Text="Window: " VerticalAlignment="Center" />
@@ -164,7 +170,7 @@
                             <TextBlock Text="Range: " VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding CTF.RangeMin, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" />
                             <TextBlock Text="-" VerticalAlignment="Center" />
-                            <c:ValueSlider Value="{Binding CTF.RangeMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                            <c:ValueSlider Value="{Binding CTF.RangeMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" Suffix="Å" />
                         </StackPanel>
                         <!-- Row 1 -->
                         <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
@@ -175,7 +181,7 @@
                             <TextBlock Text="Cs: " VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding CTF.Cs, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" Suffix="mm" />
                         </StackPanel>
-                        <CheckBox Grid.Row="1" Grid.Column="2" IsChecked="{Binding CTF.DoPhase}" Content="Phase Shift" FontSize="13" />
+                        <CheckBox Grid.Row="1" Grid.Column="2" IsChecked="{Binding CTF.DoPhase}" Content="Phase Shift" FontSize="13" Margin="12,0,0,0" />
                         <!-- Row 2 -->
                         <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal">
                             <TextBlock Text="Amplitude: " VerticalAlignment="Center" />
@@ -185,10 +191,14 @@
                             <TextBlock Text="Defocus: " VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding CTF.ZMin, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" />
                             <TextBlock Text="-" VerticalAlignment="Center" />
-                            <c:ValueSlider Value="{Binding CTF.ZMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="um" />
+                            <c:ValueSlider Value="{Binding CTF.ZMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="μm" />
                         </StackPanel>
+                        <CheckBox Grid.Row="2" Grid.Column="2" IsChecked="{Binding CTF.FitThickness}" Content="Fit Thickness" FontSize="13" Margin="12,0,0,0"
+                                  ToolTip.Tip="Fit specimen thickness when the fitted frequency range contains sufficient thickness-dependent signal." />
                     </Grid>
 
+                    <!-- 2D-only sections: hidden for tilt series, as WPF's HideWhenTomo -->
+                    <StackPanel Name="PanelSections2D">
                     <!-- ═══════════════ MOTION ═══════════════ -->
                     <StackPanel Orientation="Horizontal">
                         <CheckBox IsChecked="{Binding ProcessMovement}" VerticalAlignment="Bottom" Margin="6,0,0,7" />
@@ -198,9 +208,9 @@
                         <TextBlock Text="Consider " VerticalAlignment="Center" />
                         <c:ValueSlider Value="{Binding Movement.RangeMin, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" />
                         <TextBlock Text="-" VerticalAlignment="Center" />
-                        <c:ValueSlider Value="{Binding Movement.RangeMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                        <c:ValueSlider Value="{Binding Movement.RangeMax, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="1" MaxValue="999" StepSize="0.1" DecimalPlaces="1" Suffix="Å" />
                         <TextBlock Text=", weight B = " VerticalAlignment="Center" />
-                        <c:ValueSlider Value="{Binding Movement.Bfactor, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="-10000" MaxValue="0" StepSize="10" DecimalPlaces="0" Suffix="A2" />
+                        <c:ValueSlider Value="{Binding Movement.Bfactor, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="-10000" MaxValue="0" StepSize="10" DecimalPlaces="0" Suffix="Å²" />
                     </StackPanel>
 
                     <!-- ═══════════════ MODELS ═══════════════ -->
@@ -248,10 +258,11 @@
                         <!-- Diameter, style, score -->
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <TextBlock Text="Expect" VerticalAlignment="Center" />
-                            <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="A" />
-                            <ComboBox Name="ComboPickingStyle" MinWidth="100" Padding="4,2" VerticalAlignment="Center">
-                                <ComboBoxItem Content="cryo" IsSelected="True" />
-                                <ComboBoxItem Content="negative stain" />
+                            <c:ValueSlider Value="{Binding Picking.Diameter}" MinValue="10" MaxValue="700" StepSize="10" DecimalPlaces="0" Suffix="Å" />
+                            <ComboBox Name="ComboPickingStyle" MinWidth="100" Padding="4,2" VerticalAlignment="Center"
+                                      SelectedItem="{Binding Picking.DataStyle}">
+                                <sys:String>cryo</sys:String>
+                                <sys:String>negative stain</sys:String>
                             </ComboBox>
                             <TextBlock Text="score >" VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding Picking.MinimumScore, Converter={x:Static c:DecimalDoubleConverter.Instance}}" MinValue="0.01" MaxValue="0.99" StepSize="0.01" DecimalPlaces="2" />
@@ -259,12 +270,13 @@
                         <!-- Distance from mask -->
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Min distance from mask: " VerticalAlignment="Center" />
-                            <c:ValueSlider Value="{Binding Picking.MinimumMaskDistance}" MinValue="0" MaxValue="999999" StepSize="1" DecimalPlaces="0" Suffix="A" />
+                            <c:ValueSlider Value="{Binding Picking.MinimumMaskDistance}" MinValue="0" MaxValue="999999" StepSize="1" DecimalPlaces="0" Suffix="Å" />
                         </StackPanel>
                         <!-- Extract -->
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <CheckBox IsChecked="{Binding Picking.DoExport}" Content="Extract" FontSize="13" VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding Picking.BoxSize}" MinValue="2" MaxValue="8192" StepSize="2" DecimalPlaces="0" Suffix="px" />
+                            <TextBlock Text="{Binding Import.BinnedPixelSize, StringFormat='{}{0:0.0000} Å/px'}" VerticalAlignment="Center" />
                             <CheckBox IsChecked="{Binding Picking.DoResample}" FontSize="13" VerticalAlignment="Center" />
                             <TextBlock Text="Downsample to" VerticalAlignment="Center" />
                             <c:ValueSlider Value="{Binding Picking.BoxSizeResample}" MinValue="2" MaxValue="8192" StepSize="2" DecimalPlaces="0" Suffix="px" />
@@ -287,6 +299,7 @@
                         </StackPanel>
                         <CheckBox IsChecked="True" IsEnabled="False" Content="Average" FontSize="13" />
                         <CheckBox IsChecked="{Binding Export.DoDenoise}" Content="Odd/even frame averages" FontSize="13" />
+                    </StackPanel>
                     </StackPanel>
 
                 </StackPanel>
@@ -321,19 +334,24 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="8" Spacing="8">
                             <!-- 2D task buttons -->
-                            <StackPanel Name="PanelOverviewTasks2D" Orientation="Horizontal" Spacing="16" Margin="0,8">
+                            <WrapPanel Name="PanelOverviewTasks2D" Margin="0,8">
+                                <WrapPanel.Styles><Style Selector="Button"><Setter Property="Margin" Value="0,0,16,4" /></Style></WrapPanel.Styles>
                                 <Button Content="EXPORT MICROGRAPH LIST" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksExportMicrographs_OnClick" />
                                 <Button Content="ADJUST PARTICLE DEFOCUS" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksAdjustDefocus_OnClick" />
                                 <Button Content="EXPORT PARTICLES" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksExportParticles_OnClick" />
+                                <Button Content="IMPORT PARTICLE COORDINATES" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksImportParticles_OnClick" />
                                 <Button Content="MATCH TEMPLATE" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksMatch_OnClick" />
-                            </StackPanel>
+                                <Button Content="EXPORT BOXNET EXAMPLES" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksExportBoxNet_OnClick" />
+                            </WrapPanel>
                             <!-- 3D task buttons -->
-                            <StackPanel Name="PanelOverviewTasks3D" Orientation="Horizontal" Spacing="16">
+                            <WrapPanel Name="PanelOverviewTasks3D">
+                                <WrapPanel.Styles><Style Selector="Button"><Setter Property="Margin" Value="0,0,16,4" /></Style></WrapPanel.Styles>
                                 <Button Content="IMPORT TILT SERIES FROM IMOD" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksImportImod_OnClick" />
+                                <Button Content="EXPORT TOMOGRAM LIST" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksExportTomograms_OnClick" />
                                 <Button Content="RECONSTRUCT FULL TOMOGRAMS" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksReconstructTomograms_OnClick" />
                                 <Button Content="EXPORT SUB-TOMOGRAMS" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksExportSubtomograms_OnClick" />
                                 <Button Content="MATCH TEMPLATE (3D)" FontWeight="Medium" Foreground="CornflowerBlue" Background="Transparent" BorderThickness="0" Click="ButtonTasksMatchTomograms_OnClick" />
-                            </StackPanel>
+                            </WrapPanel>
 
                             <Separator Margin="0,8" />
 

@@ -11,7 +11,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Coordinate pixel size: " VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.InputPixelSize, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A/px" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="Å/px" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Box size: " VerticalAlignment="Center" />
@@ -31,11 +31,11 @@
             <CheckBox Name="CheckShiftParticles" Content="Shift particles by:" />
             <StackPanel Orientation="Horizontal" Margin="24,0,0,0" Spacing="4">
                 <TextBlock Text="X:" VerticalAlignment="Center" />
-                <c:ValueSlider Name="SliderShiftParticlesX" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                <c:ValueSlider Name="SliderShiftParticlesX" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="Å" />
                 <TextBlock Text="Y:" VerticalAlignment="Center" />
-                <c:ValueSlider Name="SliderShiftParticlesY" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                <c:ValueSlider Name="SliderShiftParticlesY" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="Å" />
                 <TextBlock Text="Z:" VerticalAlignment="Center" />
-                <c:ValueSlider Name="SliderShiftParticlesZ" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="A" />
+                <c:ValueSlider Name="SliderShiftParticlesZ" MinValue="-1000" MaxValue="1000" StepSize="0.1" DecimalPlaces="1" Suffix="Å" />
             </StackPanel>
             <CheckBox Name="CheckRelative" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Relative paths" />
             <CheckBox Name="CheckFilter" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include filtered out" />

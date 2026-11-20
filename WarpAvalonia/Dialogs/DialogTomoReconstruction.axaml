@@ -13,7 +13,7 @@
             <StackPanel Orientation="Horizontal" Height="30" Margin="0,0,0,10">
                 <TextBlock Text="Pixel size: " FontSize="16" VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.TomoFullReconstructPixel, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="A" />
+                               MinValue="0.01" MaxValue="1000" StepSize="0.0001" DecimalPlaces="4" Suffix="Å" />
             </StackPanel>
 
             <CheckBox Height="30" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="16" />
@@ -31,7 +31,7 @@
             <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,10">
                 <TextBlock Text="High-pass = " VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvHighpass, Converter={x:Static c:DecimalDoubleConverter.Instance}}"
-                               MinValue="1" MaxValue="100000" StepSize="1" DecimalPlaces="0" Suffix="A" />
+                               MinValue="1" MaxValue="100000" StepSize="1" DecimalPlaces="0" Suffix="Å" />
             </StackPanel>
 
             <CheckBox Height="30" IsChecked="{Binding Tasks.TomoFullReconstructPrepareDenoising}" Content="Reconstruct half-maps for denoising" FontSize="16" />
