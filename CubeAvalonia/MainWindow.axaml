@@ -5,11 +5,11 @@
         Title="Cube — 3D Coordinate Viewer"
         Width="1000" Height="1100" FontSize="12"
         KeyDown="MainWindow_OnKeyDown">
-    <Grid RowDefinitions="60,*">
+    <Grid RowDefinitions="Auto,*">
         <!-- Control bar -->
-        <Grid Grid.Row="0" Margin="10" ColumnDefinitions="20*,25*,18*,15*" RowDefinitions="*,*">
+        <Grid Grid.Row="0" Margin="10" ColumnDefinitions="20*,25*,18*,15*" RowDefinitions="Auto,Auto">
             <Button Grid.Row="0" Grid.Column="0" Name="ButtonTomogramPath"
-                    Content="Select tomogram..." Background="Transparent" BorderThickness="0"
+                    Content="Select tomogram..." Background="Transparent" BorderThickness="0" Padding="2,0" MinHeight="0" VerticalAlignment="Center"
                     Foreground="CornflowerBlue" Click="ButtonTomogramPath_OnClick" />
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
                 <TextBlock Text="Average " VerticalAlignment="Center" />
@@ -19,7 +19,7 @@
                 <TextBlock Text="Intensity " VerticalAlignment="Center" />
                 <c:ValueSlider Value="{Binding DisplayIntensityMin}" MinValue="-10" MaxValue="-0.01" StepSize="0.01" DecimalPlaces="2" />
                 <TextBlock Text=" to " VerticalAlignment="Center" />
-                <c:ValueSlider Value="{Binding DisplayIntensityMax}" MinValue="0.01" MaxValue="10" StepSize="0.01" DecimalPlaces="2" Suffix="s" />
+                <c:ValueSlider Value="{Binding DisplayIntensityMax}" MinValue="0.01" MaxValue="10" StepSize="0.01" DecimalPlaces="2" Suffix="σ" />
             </StackPanel>
             <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
                 <TextBlock Name="TextNParticles" Text="0 particles, " VerticalAlignment="Center" />
@@ -32,10 +32,10 @@
                 <c:ValueSlider Value="{Binding ParticleScoreMax}" MinValue="0" MaxValue="10" StepSize="0.01" DecimalPlaces="2" />
             </StackPanel>
             <Button Grid.Row="0" Grid.Column="3" Content="Import Coordinates"
-                    Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue"
+                    Background="Transparent" BorderThickness="0" Padding="2,0" MinHeight="0" VerticalAlignment="Center" Foreground="CornflowerBlue"
                     Click="ButtonPointsImport_OnClick" />
             <Button Grid.Row="1" Grid.Column="3" Content="Export Coordinates"
-                    Background="Transparent" BorderThickness="0" Foreground="CornflowerBlue"
+                    Background="Transparent" BorderThickness="0" Padding="2,0" MinHeight="0" VerticalAlignment="Center" Foreground="CornflowerBlue"
                     Click="ButtonPointsExport_OnClick" />
         </Grid>
 
