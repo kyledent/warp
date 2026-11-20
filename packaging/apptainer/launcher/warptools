@@ -96,9 +96,28 @@ IFS=: read -r -a _env_binds <<< "${WARPTOOLS_BINDS:-}"
 for b in ${_env_binds[@]+"${_env_binds[@]}"} ${EXTRA_BINDS[@]+"${EXTRA_BINDS[@]}"}; do add_bind "${b}"; done
 
 FLAGS=(--containall)
-# Under --containall, /tmp is a 64 MB tmpfs (apptainer's sessiondir max size): a program writing temporary
-# data there runs out of space silently. Give it the host's temporary directory instead.
-HOST_TMP="$(readlink -f "${TMPDIR:-/tmp}")"
+# Temporary space. Under --containall, /tmp is a 64 MB tmpfs (apptainer's sessiondir max size), and a
+# program writing temporary data there runs out of space silently, so a host directory is bound over it.
+# That directory must also allow execution: torch.compile (miss-alignment train) builds shared objects in
+# its temp cache and loads them, and RHEL 8 workstations mount /tmp noexec. First of: $WARPTOOLS_TMPDIR
+# (site setting), $TMPDIR, /scratch/$USER (created if /scratch is writable), /tmp.
+pick_tmp_base() {
+    local c
+    for c in "${WARPTOOLS_TMPDIR:-}" "${TMPDIR:-}"; do
+        [ -n "${c}" ] && [ -d "${c}" ] && [ -w "${c}" ] && { echo "${c}"; return; }
+    done
+    if [ -d /scratch ] && { [ -d "/scratch/${USER}" ] || mkdir -p "/scratch/${USER}" 2>/dev/null; } && [ -w "/scratch/${USER}" ]; then
+        echo "/scratch/${USER}"; return
+    fi
+    echo /tmp
+}
+TMP_BASE="$(readlink -f "$(pick_tmp_base)")"
+HOST_TMP="${TMP_BASE}/warptools-tmp-${USER}"
+mkdir -p "${HOST_TMP}" || die "cannot create temporary directory ${HOST_TMP}"
+if command -v findmnt >/dev/null 2>&1 && findmnt -n -o OPTIONS --target "${HOST_TMP}" | tr ',' '\n' | grep -qx noexec; then
+    warn "temporary directory ${HOST_TMP} is on a noexec filesystem: anything that compiles and loads code"
+    warn "there (torch.compile, e.g. 'miss-alignment train') will fail. Set WARPTOOLS_TMPDIR to an exec-capable directory."
+fi
 FLAGS+=(-B "${HOST_TMP}:/tmp")
 for b in ${BINDS[@]+"${BINDS[@]}"}; do FLAGS+=(-B "${b}:${b}"); done
 
