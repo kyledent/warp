@@ -96,6 +96,10 @@ IFS=: read -r -a _env_binds <<< "${WARPTOOLS_BINDS:-}"
 for b in ${_env_binds[@]+"${_env_binds[@]}"} ${EXTRA_BINDS[@]+"${EXTRA_BINDS[@]}"}; do add_bind "${b}"; done
 
 FLAGS=(--containall)
+# Under --containall, /tmp is a 64 MB tmpfs (apptainer's sessiondir max size): a program writing temporary
+# data there runs out of space silently. Give it the host's temporary directory instead.
+HOST_TMP="$(readlink -f "${TMPDIR:-/tmp}")"
+FLAGS+=(-B "${HOST_TMP}:/tmp")
 for b in ${BINDS[@]+"${BINDS[@]}"}; do FLAGS+=(-B "${b}:${b}"); done
 
 # Network weights (Warp's WARP_MODELS, Miss-Alignment's MISS_ALIGNMENT_CACHE_DIR): one folder, bound

@@ -104,6 +104,8 @@ section "3 upstream test suite, CUDA tests enabled"
     set -o pipefail
     cp -a /opt/build/warp "$W/warp" && cd "$W/warp" || exit 9
     export HOME="$W/home" DOTNET_CLI_HOME="$W/home"; mkdir -p "$HOME"
+    # --containall makes /tmp a 64 MB tmpfs; tests that write training data there truncate silently.
+    export TMPDIR="$W/tmp"; mkdir -p "$TMPDIR"
     # The SDK is conda-forge dotnet, in lib/dotnet (not on PATH without env activation).
     export DOTNET_ROOT=/opt/warp_build/lib/dotnet PATH=/opt/warp_build/lib/dotnet:$PATH
     timeout 2400 dotnet test Tests --no-build --no-restore \
